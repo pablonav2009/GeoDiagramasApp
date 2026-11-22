@@ -1,0 +1,2638 @@
+<!DOCTYPE html>
+<html lang="es">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f172a">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geological Diagram Pro v5.0</title>
+    <!-- React y ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel para compilar JSX en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; padding: 0; }
+        canvas { image-rendering: crisp-edges; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen w-screen overflow-hidden select-none">
+    <div id="root" class="h-full w-full"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // Componente de íconos vectoriales SVG
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const icons = {
+                select: <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />,
+                move: <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />,
+                target: (
+                    <>
+                        <circle cx="12" cy="12" r="10" />
+                        <circle cx="12" cy="12" r="6" />
+                        <circle cx="12" cy="12" r="2" />
+                    </>
+                ),
+                pen: <path d="m12 19 7-7 3 3-7 7-3-3zM18 13l-1.5-1.5M2 22l5-2 13-13-3-3L4 17l-2 5z" />,
+                pencil: <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />,
+                line: <line x1="5" y1="19" x2="19" y2="5" />,
+                stamp: (
+                    <>
+                        <path d="M5 22h14" />
+                        <path d="M19.27 13.73A2.5 2.5 0 0 0 17.5 13h-11A2.5 2.5 0 0 0 4 15.5V17a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1.5c0-.66-.26-1.3-.73-1.77Z" />
+                        <path d="M14 13V8.5C14 7 15 7 15 5a3 3 0 0 0-6 0c0 2 1 2 1 3.5V13" />
+                    </>
+                ),
+                text: <path d="M4 7V4h16v3M9 20h6M12 4v16" />,
+                undo: <path d="M3 7v6h6M3 13a9 9 0 1 0 3-7.7L3 13" />,
+                download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
+                upload: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
+                reset: <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />,
+                trash: (
+                    <>
+                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <line x1="10" y1="11" x2="10" y2="17" />
+                        <line x1="14" y1="11" x2="14" y2="17" />
+                    </>
+                ),
+                settings: (
+                    <>
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </>
+                ),
+                save: (
+                    <>
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                    </>
+                ),
+                grid: (
+                    <>
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+                    </>
+                ),
+                copy: (
+                    <>
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </>
+                ),
+                layersUp: <path d="m18 15-6-6-6 6" />,
+                layersDown: <path d="m6 9 6 6 6-6" />,
+                compress: <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />,
+                fileJson: (
+                    <>
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </>
+                )
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name] || null}
+                </svg>
+            );
+        };
+
+        // Formatos predefinidos de ancho para perfiles estándar y panorámicos
+        const SHEET_PRESETS = [
+            { label: 'Estándar', width: 900, desc: '900px' },
+            { label: 'Horizontal', width: 1300, desc: '1300px' },
+            { label: 'Panorámico', width: 1700, desc: '1700px' },
+            { label: 'Ultra', width: 2200, desc: '2200px' }
+        ];
+
+        const PATTERNS = {
+            none: { name: 'Sólido' },
+            diagonal: { name: 'Basamento' },
+            metamorphic: { name: 'Metamórfica' },
+            volcanic: { name: 'Volcánica' },
+            igneous: { name: 'Ígnea Plutónica' },
+            sandstone: { name: 'Arenisca' },
+            limestone: { name: 'Caliza' },
+            limestone_fossil: { name: 'Caliza Fosilífera' },
+            shale: { name: 'Lutita' },
+            conglomerate: { name: 'Conglomerado' },
+            arcillita: { name: 'Arcillita' },
+            limolita: { name: 'Limolita' },
+            fangolita: { name: 'Fangolita' },
+            margas: { name: 'Margas' },
+            arenisca_carbonatica: { name: 'Arenisca Carbonática' }
+        };
+
+        const CONTACT_TYPES = {
+            concordant: { name: 'Contacto Concordante' },
+            discordant: { name: 'Contacto Discordante' },
+            erosive: { name: 'Contacto Erosivo' },
+            paraconcordant: { name: 'Contacto Paraconcordante' },
+            transitional: { name: 'Contacto Transicional / Gradacional' },
+            intrusive: { name: 'Contacto Intrusivo' },
+            faulted: { name: 'Contacto por Falla' },
+            none: { name: 'Sin Contacto (Invisible)' }
+        };
+
+        const LINE_TYPES = {
+            normal: { name: 'Línea de Dibujo', category: 'General' },
+            fault: { name: 'Falla Indiferenciada', category: 'Fallas' },
+            fault_normal: { name: 'Falla Normal', category: 'Fallas' },
+            fault_reverse: { name: 'Falla Inversa / Cabalgamiento', category: 'Fallas' },
+            fault_strike: { name: 'Falla Transcurrente / Rumbo', category: 'Fallas' },
+            inferred: { name: 'Falla Inferida', category: 'Fallas' },
+            anticline: { name: 'Eje de Pliegue Anticlinal', category: 'Pliegues' },
+            syncline: { name: 'Eje de Pliegue Sinclinal', category: 'Pliegues' },
+            joint: { name: 'Diaclasa / Fractura', category: 'Diaclasas y Planos' },
+            foliation: { name: 'Foliación / Esquistosidad', category: 'Diaclasas y Planos' },
+            dike: { name: 'Dique / Veta Mineral', category: 'Intrusivos' }
+        };
+
+        const GEO_SYMBOLS = {
+            dip_right: { name: 'Rumbo y Buzamiento (Der)', category: 'Estructural' },
+            dip_left: { name: 'Rumbo y Buzamiento (Izq)', category: 'Estructural' },
+            horizontal_strata: { name: 'Estratos Horizontales', category: 'Estructural' },
+            vertical_strata: { name: 'Estratos Verticales', category: 'Estructural' },
+            anticline_sym: { name: 'Pliegue Anticlinal', category: 'Estructural' },
+            syncline_sym: { name: 'Pliegue Sinclinal', category: 'Estructural' },
+
+            horizontal_laminations: { name: 'Laminación Horizontal (Sli)', category: 'Sedimentario / Facies' },
+            massive_bedding: { name: 'Estratificación Masiva (Sm)', category: 'Sedimentario / Facies' },
+            cross_planar: { name: 'Cruzada Planar (Sp)', category: 'Sedimentario / Facies' },
+            cross_trough: { name: 'Cruzada en Artesa / Trough (St)', category: 'Sedimentario / Facies' },
+            cross_parallel: { name: 'Cruzada Paralela / Tabular', category: 'Sedimentario / Facies' },
+            cross_low_angle: { name: 'Cruzada de Bajo Ángulo / HCS', category: 'Sedimentario / Facies' },
+            ripples_current: { name: 'Ondulitas de Corriente (Sr)', category: 'Sedimentario / Facies' },
+            ripples_wave: { name: 'Ondulitas de Oleaje (Simétricas)', category: 'Sedimentario / Facies' },
+            graded_bedding: { name: 'Granoclasificación Normal', category: 'Sedimentario / Facies' },
+            bioturbation: { name: 'Bioturbación / Skolithos', category: 'Sedimentario / Facies' },
+
+            nodules: { name: 'Concreciones / Nódulos', category: 'Sedimentario / Facies' },
+            fossil_ammonite: { name: 'Fósil Invertebrado (Amonite)', category: 'Paleontología' },
+            fossil_shell: { name: 'Fósil Bivalvo / Braquiópodo', category: 'Paleontología' },
+            fossil_plant: { name: 'Restos Vegetales / Flora', category: 'Paleontología' }
+        };
+
+        const CONTACT_POSITIONS = {
+            base: { name: 'Solo en la Base' },
+            top: { name: 'Solo en el Techo' },
+            both: { name: 'Base y Techo' }
+        };
+
+        // Utilidades geométricas
+        const getDistToSegment = (p, v, w) => {
+            const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2;
+            if (l2 === 0) return { dist: Math.hypot(p.x - v.x, p.y - v.y), proj: v };
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            const proj = { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) };
+            return { dist: Math.hypot(p.x - proj.x, p.y - proj.y), proj };
+        };
+
+        const isPointOnPolyBoundary = (pt, polyPoints) => {
+            for (let j = 0; j < polyPoints.length; j++) {
+                if (getDistToSegment(pt, polyPoints[j], polyPoints[(j + 1) % polyPoints.length]).dist < 5) return true;
+            }
+            return false;
+        };
+
+        const traceErosiveSegment = (ctx, p1, p2) => {
+            let start = p1, end = p2, reversed = false;
+            if (p1.x > p2.x || (Math.abs(p1.x - p2.x) < 1 && p1.y > p2.y)) {
+                start = p2; end = p1; reversed = true;
+            }
+            const dx = end.x - start.x, dy = end.y - start.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx);
+            const steps = Math.max(2, Math.floor(dist / 6));
+            const pts = [];
+            for (let j = 0; j <= steps; j++) {
+                const d = (j / steps) * dist;
+                const waveY = Math.sin(d * 0.3) * 4;
+                pts.push({
+                    x: start.x + Math.cos(angle) * d - Math.sin(angle) * waveY,
+                    y: start.y + Math.sin(angle) * d + Math.cos(angle) * waveY
+                });
+            }
+            if (reversed) pts.reverse();
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        };
+
+        const drawDecoratedSegment = (ctx, p1, p2, styleType, color = '#000', isSelected = false) => {
+            const strokeColor = isSelected ? '#3b82f6' : color;
+            ctx.save();
+            ctx.strokeStyle = strokeColor;
+            ctx.fillStyle = strokeColor;
+            ctx.setLineDash([]);
+            ctx.lineWidth = 2;
+
+            if (styleType === 'erosive') {
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                traceErosiveSegment(ctx, p1, p2);
+                ctx.stroke();
+                ctx.restore();
+                return;
+            }
+
+            if (styleType === 'fault' || styleType === 'faulted') ctx.lineWidth = 3.5;
+            else if (styleType === 'inferred') { ctx.lineWidth = 3; ctx.setLineDash([12, 8]); }
+            else if (styleType === 'discordant') ctx.setLineDash([12, 6]);
+            else if (styleType === 'paraconcordant') ctx.setLineDash([15, 6, 2, 6]);
+            else if (styleType === 'transitional') ctx.setLineDash([3, 5]);
+            else if (styleType === 'joint') { ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]); }
+            else if (styleType === 'foliation') { ctx.lineWidth = 1.5; ctx.setLineDash([8, 4, 2, 4]); }
+            else if (styleType === 'dike') { ctx.lineWidth = 5; }
+            else if (styleType === 'fault_normal' || styleType === 'fault_reverse' || styleType === 'fault_strike') {
+                ctx.lineWidth = 3;
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const dx = p2.x - p1.x, dy = p2.y - p1.y;
+            const dist = Math.hypot(dx, dy);
+            const angle = Math.atan2(dy, dx);
+            const nx = -Math.sin(angle), ny = Math.cos(angle);
+
+            if (styleType === 'intrusive') {
+                const step = 12;
+                for (let d = step / 2; d < dist - 4; d += step) {
+                    const bx = p1.x + Math.cos(angle) * d;
+                    const by = p1.y + Math.sin(angle) * d;
+                    ctx.beginPath();
+                    ctx.moveTo(bx, by);
+                    ctx.lineTo(bx + nx * 6, by + ny * 6);
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+            } else if (styleType === 'fault_normal') {
+                const step = 28;
+                for (let d = step / 2; d < dist - 6; d += step) {
+                    const bx = p1.x + Math.cos(angle) * d;
+                    const by = p1.y + Math.sin(angle) * d;
+                    ctx.beginPath();
+                    ctx.moveTo(bx, by);
+                    ctx.lineTo(bx + nx * 8, by + ny * 8);
+                    ctx.arc(bx + nx * 8, by + ny * 8, 1.5, 0, Math.PI * 2);
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            } else if (styleType === 'fault_reverse') {
+                const step = 26;
+                for (let d = step / 2; d < dist - 8; d += step) {
+                    const bx = p1.x + Math.cos(angle) * d;
+                    const by = p1.y + Math.sin(angle) * d;
+                    ctx.beginPath();
+                    ctx.moveTo(bx - Math.cos(angle) * 6, by - Math.sin(angle) * 6);
+                    ctx.lineTo(bx + nx * 8, by + ny * 8);
+                    ctx.lineTo(bx + Math.cos(angle) * 6, by + Math.sin(angle) * 6);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            } else if (styleType === 'fault_strike') {
+                const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+                const drawHalfArrow = (dir, side) => {
+                    const ox = midX + nx * (side * 5);
+                    const oy = midY + ny * (side * 5);
+                    const ex = ox + Math.cos(angle) * (dir * 12);
+                    const ey = oy + Math.sin(angle) * (dir * 12);
+                    ctx.beginPath();
+                    ctx.moveTo(ox - Math.cos(angle) * (dir * 10), oy - Math.sin(angle) * (dir * 10));
+                    ctx.lineTo(ex, ey);
+                    ctx.lineTo(ex - Math.cos(angle) * (dir * 5) + nx * (side * 4), ey - Math.sin(angle) * (dir * 5) + ny * (side * 4));
+                    ctx.lineWidth = 1.8;
+                    ctx.stroke();
+                };
+                if (dist > 25) {
+                    drawHalfArrow(1, 1);
+                    drawHalfArrow(-1, -1);
+                }
+            } else if (styleType === 'anticline' || styleType === 'syncline') {
+                const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+                if (dist > 25) {
+                    [-1, 1].forEach(side => {
+                        const tx = midX + nx * (side * 12);
+                        const ty = midY + ny * (side * 12);
+                        ctx.beginPath();
+                        ctx.moveTo(midX, midY);
+                        ctx.lineTo(tx, ty);
+                        ctx.lineWidth = 1.8;
+                        ctx.stroke();
+                        ctx.beginPath();
+                        if (styleType === 'anticline') {
+                            ctx.moveTo(tx, ty);
+                            ctx.lineTo(tx - nx * (side * 5) - Math.cos(angle) * 4, ty - ny * (side * 5) - Math.sin(angle) * 4);
+                            ctx.lineTo(tx - nx * (side * 5) + Math.cos(angle) * 4, ty - ny * (side * 5) + Math.sin(angle) * 4);
+                        } else {
+                            ctx.moveTo(midX + nx * (side * 3), midY + ny * (side * 3));
+                            ctx.lineTo(midX + nx * (side * 8) - Math.cos(angle) * 4, midY + ny * (side * 8) - Math.sin(angle) * 4);
+                            ctx.lineTo(midX + nx * (side * 8) + Math.cos(angle) * 4, midY + ny * (side * 8) + Math.sin(angle) * 4);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                    });
+                }
+            }
+            ctx.restore();
+        };
+
+        const drawGeoSymbol = (ctx, sym) => {
+            ctx.save();
+            ctx.translate(sym.x, sym.y);
+            if (sym.rotation) {
+                ctx.rotate((sym.rotation * Math.PI) / 180);
+            }
+            const s = (sym.size || 24) / 24;
+            ctx.scale(s, s);
+            ctx.strokeStyle = sym.color || '#000';
+            ctx.fillStyle = sym.color || '#000';
+            ctx.lineWidth = 2;
+
+            switch (sym.symbolType) {
+                case 'dip_right':
+                    ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(0, 12); ctx.moveTo(0, 0); ctx.lineTo(10, 0); ctx.stroke();
+                    break;
+                case 'dip_left':
+                    ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(0, 12); ctx.moveTo(0, 0); ctx.lineTo(-10, 0); ctx.stroke();
+                    break;
+                case 'horizontal_strata':
+                    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.moveTo(0, -9); ctx.lineTo(0, 9); ctx.stroke();
+                    break;
+                case 'vertical_strata':
+                    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(12, 0); ctx.moveTo(-4, -7); ctx.lineTo(4, 7); ctx.moveTo(4, -7); ctx.lineTo(-4, 7); ctx.stroke();
+                    break;
+                case 'anticline_sym':
+                    ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(0, 12); ctx.moveTo(-10, 0); ctx.lineTo(10, 0); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-7, -4); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(7, -4); ctx.lineTo(7, 4); ctx.closePath(); ctx.fill();
+                    break;
+                case 'syncline_sym':
+                    ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(0, 12); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(-8, -4); ctx.lineTo(-8, 4); ctx.closePath(); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(3, 0); ctx.lineTo(8, -4); ctx.lineTo(8, 4); ctx.closePath(); ctx.fill();
+                    break;
+                case 'horizontal_laminations':
+                    ctx.beginPath();
+                    ctx.moveTo(-12, -7); ctx.lineTo(12, -7);
+                    ctx.moveTo(-12, 0); ctx.lineTo(12, 0);
+                    ctx.moveTo(-12, 7); ctx.lineTo(12, 7);
+                    ctx.stroke();
+                    break;
+                case 'massive_bedding':
+                    ctx.strokeRect(-12, -8, 24, 16);
+                    ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('Sm', 0, 0);
+                    break;
+                case 'cross_planar':
+                    ctx.beginPath();
+                    ctx.moveTo(-12, -10); ctx.lineTo(12, -10);
+                    ctx.moveTo(-12, 10); ctx.lineTo(12, 10);
+                    ctx.moveTo(-8, -10); ctx.lineTo(4, 10);
+                    ctx.moveTo(0, -10); ctx.lineTo(10, 5);
+                    ctx.stroke();
+                    break;
+                case 'cross_trough':
+                    ctx.beginPath();
+                    ctx.moveTo(-12, -10); ctx.lineTo(12, -10);
+                    ctx.moveTo(-12, 10); ctx.lineTo(12, 10);
+                    ctx.moveTo(-10, -10); ctx.quadraticCurveTo(-3, 6, 4, 10);
+                    ctx.moveTo(-2, -10); ctx.quadraticCurveTo(5, 6, 11, 10);
+                    ctx.stroke();
+                    break;
+                case 'cross_parallel':
+                    ctx.beginPath();
+                    ctx.moveTo(-12, -10); ctx.lineTo(12, -10);
+                    ctx.moveTo(-12, 10); ctx.lineTo(12, 10);
+                    ctx.moveTo(-10, -10); ctx.lineTo(0, 10);
+                    ctx.moveTo(-3, -10); ctx.lineTo(7, 10);
+                    ctx.moveTo(4, -10); ctx.lineTo(12, 2);
+                    ctx.stroke();
+                    break;
+                case 'cross_low_angle':
+                    ctx.beginPath();
+                    ctx.moveTo(-12, -10); ctx.lineTo(12, -10);
+                    ctx.moveTo(-12, 10); ctx.lineTo(12, 10);
+                    ctx.moveTo(-12, -6); ctx.quadraticCurveTo(0, -2, 12, -8);
+                    ctx.moveTo(-12, 2); ctx.quadraticCurveTo(0, 6, 12, 0);
+                    ctx.stroke();
+                    break;
+                case 'ripples_current':
+                    ctx.beginPath();
+                    ctx.moveTo(-12, 4); ctx.lineTo(-4, -4); ctx.lineTo(2, 4); ctx.lineTo(10, -4); ctx.stroke();
+                    break;
+                case 'ripples_wave':
+                    ctx.beginPath();
+                    ctx.moveTo(-12, 2); ctx.quadraticCurveTo(-6, -6, 0, 2); ctx.quadraticCurveTo(6, -6, 12, 2);
+                    ctx.stroke();
+                    break;
+                case 'graded_bedding':
+                    ctx.beginPath();
+                    ctx.moveTo(-12, -10); ctx.lineTo(12, -10);
+                    ctx.moveTo(-12, 10); ctx.lineTo(12, 10);
+                    ctx.stroke();
+                    for(let px = -8; px <= 8; px += 4) {
+                        ctx.beginPath(); ctx.arc(px, 6, 1.8, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(px, -2, 1.0, 0, Math.PI*2); ctx.fill();
+                    }
+                    break;
+                case 'bioturbation':
+                    ctx.beginPath();
+                    ctx.moveTo(-10, -8); ctx.bezierCurveTo(-4, 8, 4, -8, 10, 8);
+                    ctx.moveTo(-6, 2); ctx.bezierCurveTo(-2, -6, 2, 6, 6, -2);
+                    ctx.lineWidth = 1.5; ctx.stroke();
+                    break;
+                case 'nodules':
+                    ctx.beginPath(); ctx.ellipse(-5, -2, 5, 3, 0, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.ellipse(6, 3, 4, 2.5, 0, 0, Math.PI * 2); ctx.stroke();
+                    break;
+                case 'fossil_ammonite':
+                    ctx.beginPath();
+                    for (let a = 0; a < Math.PI * 3.5; a += 0.2) {
+                        const r = a * 1.1;
+                        const x = Math.cos(a) * r, y = Math.sin(a) * r;
+                        if (a === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                    break;
+                case 'fossil_shell':
+                    ctx.beginPath(); ctx.arc(0, 4, 9, Math.PI, 0); ctx.closePath(); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(-5, -3); ctx.moveTo(0, 4); ctx.lineTo(0, -5); ctx.moveTo(0, 4); ctx.lineTo(5, -3); ctx.stroke();
+                    break;
+                case 'fossil_plant':
+                    ctx.beginPath(); ctx.moveTo(0, 10); ctx.quadraticCurveTo(2, 0, 0, -10);
+                    ctx.moveTo(0, 4); ctx.lineTo(-6, 0); ctx.moveTo(0, 0); ctx.lineTo(6, -4); ctx.moveTo(0, -4); ctx.lineTo(-5, -8);
+                    ctx.stroke();
+                    break;
+                default:
+                    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        };
+
+        const createPatternDataURL = (getPatternFn, patternKey, bgColor) => {
+            const c = document.createElement('canvas');
+            c.width = 48; c.height = 28;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = bgColor || '#ffffff';
+            ctx.fillRect(0, 0, 48, 28);
+            const pat = getPatternFn(ctx, patternKey, 'transparent');
+            if (pat) {
+                ctx.fillStyle = pat;
+                ctx.fillRect(0, 0, 48, 28);
+            }
+            return c.toDataURL();
+        };
+
+        const createLinePreviewDataURL = (styleType, color = '#000') => {
+            const c = document.createElement('canvas');
+            c.width = 56; c.height = 24;
+            const ctx = c.getContext('2d');
+            drawDecoratedSegment(ctx, { x: 4, y: 12 }, { x: 52, y: 12 }, styleType, color, false);
+            return c.toDataURL();
+        };
+
+        const createSymbolPreviewDataURL = (symbolType, color = '#000') => {
+            const c = document.createElement('canvas');
+            c.width = 36; c.height = 28;
+            const ctx = c.getContext('2d');
+            drawGeoSymbol(ctx, { x: 18, y: 14, size: 20, symbolType, color });
+            return c.toDataURL();
+        };
+
+        function App() {
+            const [bgColor, setBgColor] = useState('#fdf8c2');
+            const [mode, setMode] = useState('select');
+            const [polygons, setPolygons] = useState([]);
+            const [floatingTexts, setFloatingTexts] = useState([]);
+            const [geoSymbols, setGeoSymbols] = useState([]);
+            const [currentPoints, setCurrentPoints] = useState([]);
+            const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+            const [snapPoint, setSnapPoint] = useState(null);
+            const [isClosingSnap, setIsClosingSnap] = useState(false);
+            const [autoSave, setAutoSave] = useState(true);
+            const [history, setHistory] = useState([]);
+            const [showResetModal, setShowResetModal] = useState(false);
+            const [toastMsg, setToastMsg] = useState(null);
+
+            const [activeLineType, setActiveLineType] = useState('fault_normal');
+            const [activeSymbolType, setActiveSymbolType] = useState('horizontal_laminations');
+            const [activeCatalogTab, setActiveCatalogTab] = useState('fallas');
+
+            const [dimensions, setDimensions] = useState({ width: 900, height: 600 });
+            const [extraTopSpace, setExtraTopSpace] = useState(0);
+            const [zoom, setZoom] = useState(1);
+            const [showGrid, setShowGrid] = useState(false);
+            const [snapToGrid, setSnapToGrid] = useState(false);
+            const [orientationLeft, setOrientationLeft] = useState('');
+            const [orientationRight, setOrientationRight] = useState('');
+            const [showSheetSettings, setShowSheetSettings] = useState(false);
+
+            const [selectedId, setSelectedId] = useState(null);
+            const [selectedTextId, setSelectedTextId] = useState(null);
+            const [selectedSymbolId, setSelectedSymbolId] = useState(null);
+            const [draggingVertex, setDraggingVertex] = useState(null);
+            const [draggingPoly, setDraggingPoly] = useState(null);
+            const [draggingTextId, setDraggingTextId] = useState(null);
+            const [draggingSymbolId, setDraggingSymbolId] = useState(null);
+            const [isDrawingFreehand, setIsDrawingFreehand] = useState(false);
+
+            const canvasRef = useRef(null);
+            const containerRef = useRef(null);
+            const fileInputRef = useRef(null);
+
+            const colAgeWidth = 140;
+            const colDescWidth = 200;
+            const titleHeight = 60;
+            const gridSize = 25;
+            const TOP_MARGIN = 35;
+
+            const isInteracting = Boolean(draggingPoly || draggingVertex || draggingTextId || draggingSymbolId || isDrawingFreehand);
+
+            const showToast = (text, type = 'info') => {
+                setToastMsg({ text, type });
+                setTimeout(() => setToastMsg(null), 3200);
+            };
+
+            const saveHistory = () => {
+                setHistory(prev => [...prev.slice(-39), {
+                    polygons: JSON.parse(JSON.stringify(polygons)),
+                    floatingTexts: JSON.parse(JSON.stringify(floatingTexts)),
+                    geoSymbols: JSON.parse(JSON.stringify(geoSymbols)),
+                    extraTopSpace
+                }]);
+            };
+
+            const handleUndo = () => {
+                if (currentPoints.length > 0) {
+                    setCurrentPoints(currentPoints.slice(0, -1));
+                } else if (history.length > 0) {
+                    const lastState = history[history.length - 1];
+                    setPolygons(lastState.polygons);
+                    setFloatingTexts(lastState.floatingTexts);
+                    setGeoSymbols(lastState.geoSymbols || []);
+                    if (typeof lastState.extraTopSpace === 'number') {
+                        setExtraTopSpace(lastState.extraTopSpace);
+                    }
+                    setHistory(history.slice(0, -1));
+                    setSelectedId(null);
+                    setSelectedTextId(null);
+                    setSelectedSymbolId(null);
+                }
+            };
+
+            // Cargar desde localStorage (compatible con versiones anteriores)
+            useEffect(() => {
+                try {
+                    const savedAutoSave = localStorage.getItem('geo_v15_autosave');
+                    if (savedAutoSave !== null) setAutoSave(savedAutoSave === 'true');
+                    const savedPolys = localStorage.getItem('geo_v15_polys');
+                    const savedTexts = localStorage.getItem('geo_v15_texts');
+                    const savedSyms = localStorage.getItem('geo_v15_syms');
+                    const savedBg = localStorage.getItem('geo_v15_bg');
+                    const savedWidth = localStorage.getItem('geo_v15_width');
+                    const savedExtraTop = localStorage.getItem('geo_v15_extra_top');
+                    const savedOriL = localStorage.getItem('geo_v15_ori_l');
+                    const savedOriR = localStorage.getItem('geo_v15_ori_r');
+
+                    if (savedPolys) { setPolygons(JSON.parse(savedPolys)); }
+                    if (savedTexts) { setFloatingTexts(JSON.parse(savedTexts)); }
+                    if (savedSyms) { setGeoSymbols(JSON.parse(savedSyms)); }
+                    if (savedBg) setBgColor(savedBg);
+                    if (savedWidth) {
+                        const w = parseInt(savedWidth, 10);
+                        if (!isNaN(w) && w >= 750 && w <= 3000) {
+                            setDimensions(prev => ({ ...prev, width: w }));
+                        }
+                    }
+                    if (savedExtraTop) {
+                        const et = parseFloat(savedExtraTop);
+                        if (!isNaN(et) && et >= 0) setExtraTopSpace(et);
+                    }
+                    if (savedOriL !== null) setOrientationLeft(savedOriL);
+                    if (savedOriR !== null) setOrientationRight(savedOriR);
+                } catch (e) {}
+            }, []);
+
+            // Auto-guardado y ajuste vertical bidireccional inteligente (expande y contrae al volver a bajar)
+            useEffect(() => {
+                try {
+                    localStorage.setItem('geo_v15_autosave', autoSave);
+                    if (autoSave) {
+                        localStorage.setItem('geo_v15_polys', JSON.stringify(polygons));
+                        localStorage.setItem('geo_v15_texts', JSON.stringify(floatingTexts));
+                        localStorage.setItem('geo_v15_syms', JSON.stringify(geoSymbols));
+                        localStorage.setItem('geo_v15_bg', bgColor);
+                        localStorage.setItem('geo_v15_width', String(dimensions.width));
+                        localStorage.setItem('geo_v15_extra_top', String(extraTopSpace));
+                        localStorage.setItem('geo_v15_ori_l', orientationLeft);
+                        localStorage.setItem('geo_v15_ori_r', orientationRight);
+                    }
+                } catch (e) {}
+
+                // Esperamos a que el usuario suelte el mouse para evitar saltos durante el arrastre
+                if (isInteracting) return;
+
+                if (polygons.length === 0 && floatingTexts.length === 0 && geoSymbols.length === 0) {
+                    if (extraTopSpace !== 0) setExtraTopSpace(0);
+                    if (dimensions.height !== 600) {
+                        setDimensions(prev => ({ ...prev, height: 600 }));
+                    }
+                    return;
+                }
+
+                let maxY = 400;
+                let minY = Infinity;
+                polygons.forEach(p => p.points.forEach(pt => {
+                    if (pt.y > maxY) maxY = pt.y;
+                    if (pt.y < minY) minY = pt.y;
+                }));
+                floatingTexts.forEach(t => {
+                    if (t.y > maxY) maxY = t.y;
+                    if (t.y < minY) minY = t.y;
+                });
+                geoSymbols.forEach(s => {
+                    if (s.y > maxY) maxY = s.y;
+                    if (s.y < minY) minY = s.y;
+                });
+
+                const safeTop = titleHeight + TOP_MARGIN;
+
+                // 1) Si un elemento sube demasiado cerca del encabezado, expandimos hacia arriba empujando todo hacia abajo
+                if (minY < titleHeight + 20) {
+                    const shiftDown = Math.ceil(safeTop - minY);
+                    if (shiftDown > 0) {
+                        setPolygons(prev => prev.map(p => ({
+                            ...p,
+                            points: p.points.map(pt => ({ ...pt, y: pt.y + shiftDown }))
+                        })));
+                        setFloatingTexts(prev => prev.map(t => ({ ...t, y: t.y + shiftDown })));
+                        setGeoSymbols(prev => prev.map(s => ({ ...s, y: s.y + shiftDown })));
+                        setExtraTopSpace(prev => prev + shiftDown);
+                        setDimensions(prev => ({ ...prev, height: Math.max(600, Math.ceil(maxY + shiftDown + 60)) }));
+                        return;
+                    }
+                }
+
+                // 2) Si previamente se estiró hacia arriba y ahora se bajó el objeto, devolvemos el espacio y los títulos vuelven a su posición
+                if (extraTopSpace > 0 && minY > safeTop + 2) {
+                    const availableSlack = Math.floor(minY - safeTop);
+                    const reclaim = Math.min(extraTopSpace, availableSlack);
+                    if (reclaim > 1) {
+                        setPolygons(prev => prev.map(p => ({
+                            ...p,
+                            points: p.points.map(pt => ({ ...pt, y: pt.y - reclaim }))
+                        })));
+                        setFloatingTexts(prev => prev.map(t => ({ ...t, y: t.y - reclaim })));
+                        setGeoSymbols(prev => prev.map(s => ({ ...s, y: s.y - reclaim })));
+                        setExtraTopSpace(prev => Math.max(0, prev - reclaim));
+                        setDimensions(prev => ({ ...prev, height: Math.max(600, Math.ceil(maxY - reclaim + 60)) }));
+                        return;
+                    }
+                }
+
+                // 3) Ajuste limpio de altura inferior
+                const calculatedHeight = Math.max(600, Math.ceil(maxY + 60));
+                if (dimensions.height !== calculatedHeight) {
+                    setDimensions(prev => ({ ...prev, height: calculatedHeight }));
+                }
+            }, [polygons, floatingTexts, geoSymbols, bgColor, autoSave, isInteracting, dimensions.width, extraTopSpace, orientationLeft, orientationRight]);
+
+            // Cambiar ancho de hoja manteniendo textos de la columna derecha ("Observaciones") anclados
+            const changeSheetWidth = (newWidth) => {
+                const clamped = Math.max(750, Math.min(3000, Math.round(newWidth)));
+                if (clamped === dimensions.width) return;
+                const oldWidth = dimensions.width;
+                const deltaW = clamped - oldWidth;
+                const oldRightColStart = oldWidth - colDescWidth;
+
+                setFloatingTexts(prev => prev.map(t => {
+                    if (t.x >= oldRightColStart) {
+                        return { ...t, x: t.x + deltaW };
+                    }
+                    return t;
+                }));
+                setDimensions(prev => ({ ...prev, width: clamped }));
+            };
+
+            // Botón manual para compactar todo el espacio vacío superior e inferior
+            const handleCompactSheet = () => {
+                if (polygons.length === 0 && floatingTexts.length === 0 && geoSymbols.length === 0) {
+                    setExtraTopSpace(0);
+                    setDimensions(prev => ({ ...prev, height: 600 }));
+                    return;
+                }
+                let minY = Infinity;
+                let maxY = 0;
+                polygons.forEach(p => p.points.forEach(pt => {
+                    if (pt.y < minY) minY = pt.y;
+                    if (pt.y > maxY) maxY = pt.y;
+                }));
+                floatingTexts.forEach(t => {
+                    if (t.y < minY) minY = t.y;
+                    if (t.y > maxY) maxY = t.y;
+                });
+                geoSymbols.forEach(s => {
+                    if (s.y < minY) minY = s.y;
+                    if (s.y > maxY) maxY = s.y;
+                });
+
+                const safeTop = titleHeight + TOP_MARGIN;
+                const shiftUp = Math.floor(minY - safeTop);
+                if (shiftUp !== 0) {
+                    saveHistory();
+                    setPolygons(prev => prev.map(p => ({
+                        ...p,
+                        points: p.points.map(pt => ({ ...pt, y: pt.y - shiftUp }))
+                    })));
+                    setFloatingTexts(prev => prev.map(t => ({ ...t, y: t.y - shiftUp })));
+                    setGeoSymbols(prev => prev.map(s => ({ ...s, y: s.y - shiftUp })));
+                    setExtraTopSpace(0);
+                    setDimensions(prev => ({ ...prev, height: Math.max(600, Math.ceil((maxY - shiftUp) + 60)) }));
+                    showToast('Hoja encuadrada al contenido', 'success');
+                }
+            };
+
+            const handleFitZoom = () => {
+                if (!containerRef.current) return;
+                const availW = containerRef.current.clientWidth - 64;
+                const fitted = Math.max(0.45, Math.min(1, Math.floor((availW / dimensions.width) * 100) / 100));
+                setZoom(fitted);
+            };
+
+            // Guardar / Cargar proyecto JSON
+            const handleSaveProject = () => {
+                const payload = {
+                    version: '5.0',
+                    bgColor,
+                    dimensions,
+                    extraTopSpace,
+                    orientationLeft,
+                    orientationRight,
+                    polygons,
+                    floatingTexts,
+                    geoSymbols
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `proyecto-afloramiento-${new Date().toISOString().slice(0, 10)}.json`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+                showToast('Proyecto guardado (.json)', 'success');
+            };
+
+            const handleLoadProject = (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const data = JSON.parse(ev.target.result);
+                        saveHistory();
+                        if (Array.isArray(data.polygons)) setPolygons(data.polygons);
+                        if (Array.isArray(data.floatingTexts)) setFloatingTexts(data.floatingTexts);
+                        if (Array.isArray(data.geoSymbols)) setGeoSymbols(data.geoSymbols);
+                        if (data.bgColor) setBgColor(data.bgColor);
+                        if (data.dimensions?.width) {
+                            setDimensions({
+                                width: Math.max(750, Math.min(3000, data.dimensions.width)),
+                                height: Math.max(600, data.dimensions.height || 600)
+                            });
+                        }
+                        setExtraTopSpace(typeof data.extraTopSpace === 'number' ? data.extraTopSpace : 0);
+                        setOrientationLeft(data.orientationLeft || '');
+                        setOrientationRight(data.orientationRight || '');
+                        setSelectedId(null);
+                        setSelectedTextId(null);
+                        setSelectedSymbolId(null);
+                        showToast('Proyecto cargado correctamente', 'success');
+                    } catch (err) {
+                        showToast('No se pudo leer el archivo .json seleccionado', 'error');
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
+
+            // Orden de capas y duplicación
+            const movePolyLayer = (id, direction) => {
+                const idx = polygons.findIndex(p => p.id === id);
+                if (idx === -1) return;
+                const targetIdx = direction === 'up' ? idx + 1 : idx - 1;
+                if (targetIdx < 0 || targetIdx >= polygons.length) return;
+                saveHistory();
+                const copy = [...polygons];
+                const [item] = copy.splice(idx, 1);
+                copy.splice(targetIdx, 0, item);
+                setPolygons(copy);
+            };
+
+            const duplicatePoly = (id) => {
+                const poly = polygons.find(p => p.id === id);
+                if (!poly) return;
+                saveHistory();
+                const clone = {
+                    ...JSON.parse(JSON.stringify(poly)),
+                    id: Date.now().toString(),
+                    points: poly.points.map(pt => ({
+                        x: Math.min(dimensions.width - colDescWidth - 10, pt.x + 25),
+                        y: pt.y + 25
+                    }))
+                };
+                setPolygons(prev => [...prev, clone]);
+                setSelectedId(clone.id);
+            };
+
+            const getPattern = (ctx, type, colorHex) => {
+                if (type === 'none' || !type) return colorHex;
+                const pCanvas = document.createElement('canvas');
+                pCanvas.width = 40; pCanvas.height = 40;
+                const pCtx = pCanvas.getContext('2d');
+                pCtx.fillStyle = colorHex;
+                pCtx.fillRect(0, 0, 40, 40);
+                pCtx.strokeStyle = 'rgba(0,0,0,0.55)';
+                pCtx.lineWidth = 1;
+
+                if (type === 'diagonal') {
+                    for (let i = -40; i < 80; i += 10) {
+                        pCtx.beginPath(); pCtx.moveTo(i, 0); pCtx.lineTo(i + 40, 40); pCtx.stroke();
+                    }
+                } else if (type === 'sandstone') {
+                    pCtx.fillStyle = 'rgba(0,0,0,0.65)';
+                    for (let x = 4; x < 40; x += 8) {
+                        for (let y = 4; y < 40; y += 8) {
+                            pCtx.beginPath(); pCtx.arc(x + (y % 16 === 0 ? 4 : 0), y, 0.8, 0, Math.PI * 2); pCtx.fill();
+                        }
+                    }
+                } else if (type === 'limestone' || type === 'limestone_fossil') {
+                    for (let y = 0; y < 40; y += 10) {
+                        pCtx.beginPath(); pCtx.moveTo(0, y); pCtx.lineTo(40, y); pCtx.stroke();
+                        for (let x = 0; x < 40; x += 20) {
+                            pCtx.beginPath(); pCtx.moveTo(x + (y % 20 === 0 ? 0 : 10), y); pCtx.lineTo(x + (y % 20 === 0 ? 0 : 10), y + 10); pCtx.stroke();
+                        }
+                    }
+                    if (type === 'limestone_fossil') {
+                        pCtx.strokeStyle = 'rgba(0,0,0,0.5)';
+                        const fossils = [{ x: 5, y: 5 }, { x: 25, y: 5 }, { x: 15, y: 15 }, { x: 35, y: 15 }, { x: 5, y: 25 }, { x: 25, y: 25 }, { x: 15, y: 35 }];
+                        fossils.forEach(f => {
+                            pCtx.beginPath(); pCtx.arc(f.x, f.y, 2, 0.2, Math.PI - 0.2); pCtx.stroke();
+                        });
+                    }
+                } else if (type === 'arcillita') {
+                    for (let y = 2; y < 40; y += 4) {
+                        pCtx.beginPath(); pCtx.moveTo(0, y); pCtx.lineTo(40, y); pCtx.stroke();
+                    }
+                } else if (type === 'limolita') {
+                    pCtx.setLineDash([4, 4]);
+                    for (let y = 4; y < 40; y += 8) {
+                        pCtx.beginPath(); pCtx.moveTo(0, y); pCtx.lineTo(40, y); pCtx.stroke();
+                    }
+                    pCtx.setLineDash([]);
+                    for (let x = 6; x < 40; x += 10) {
+                        for (let y = 8; y < 40; y += 10) {
+                            pCtx.beginPath(); pCtx.arc(x, y, 0.6, 0, Math.PI * 2); pCtx.fill();
+                        }
+                    }
+                } else if (type === 'margas') {
+                    for (let i = -40; i < 80; i += 12) {
+                        pCtx.beginPath(); pCtx.moveTo(i, 0); pCtx.lineTo(i + 10, 10); pCtx.stroke();
+                    }
+                    for (let y = 0; y < 40; y += 10) {
+                        pCtx.beginPath(); pCtx.moveTo(0, y); pCtx.lineTo(40, y); pCtx.stroke();
+                    }
+                } else if (type === 'fangolita') {
+                    for (let y = 2; y < 40; y += 5) {
+                        pCtx.beginPath(); pCtx.moveTo(0, y); pCtx.lineTo(40, y); pCtx.stroke();
+                    }
+                    pCtx.fillStyle = 'rgba(0,0,0,0.45)';
+                    const mudDots = [{ x: 10, y: 10 }, { x: 30, y: 15 }, { x: 15, y: 30 }, { x: 35, y: 35 }, { x: 5, y: 20 }, { x: 25, y: 5 }];
+                    mudDots.forEach(d => {
+                        pCtx.beginPath(); pCtx.arc(d.x, d.y, 0.7, 0, Math.PI * 2); pCtx.fill();
+                    });
+                } else if (type === 'arenisca_carbonatica') {
+                    pCtx.fillStyle = 'rgba(0,0,0,0.6)';
+                    for (let x = 4; x < 40; x += 10) {
+                        for (let y = 4; y < 40; y += 10) {
+                            pCtx.beginPath(); pCtx.arc(x, y, 0.8, 0, Math.PI * 2); pCtx.fill();
+                        }
+                    }
+                    for (let y = 0; y < 40; y += 20) {
+                        for (let x = 0; x < 40; x += 20) {
+                            pCtx.strokeRect(x + 5, y + 5, 8, 4);
+                        }
+                    }
+                } else if (type === 'metamorphic') {
+                    for (let y = 5; y < 40; y += 10) {
+                        pCtx.beginPath();
+                        for (let x = 0; x <= 40; x += 5) {
+                            pCtx.lineTo(x, y + Math.sin(x * 0.5) * 3);
+                        }
+                        pCtx.stroke();
+                    }
+                } else if (type === 'volcanic') {
+                    for (let x = 10; x <= 40; x += 20) {
+                        for (let y = 10; y <= 40; y += 20) {
+                            pCtx.beginPath(); pCtx.moveTo(x - 4, y - 4); pCtx.lineTo(x, y + 2); pCtx.lineTo(x + 4, y - 4); pCtx.stroke();
+                        }
+                    }
+                } else if (type === 'igneous') {
+                    for (let x = 10; x <= 40; x += 20) {
+                        for (let y = 10; y <= 40; y += 20) {
+                            pCtx.beginPath(); pCtx.moveTo(x - 5, y); pCtx.lineTo(x + 5, y); pCtx.moveTo(x, y - 5); pCtx.lineTo(x, y + 5); pCtx.stroke();
+                        }
+                    }
+                } else if (type === 'shale') {
+                    pCtx.setLineDash([8, 6]);
+                    for (let y = 8; y < 40; y += 12) {
+                        pCtx.beginPath(); pCtx.moveTo(0, y); pCtx.lineTo(40, y); pCtx.stroke();
+                    }
+                } else if (type === 'conglomerate') {
+                    const clasts = [
+                        { x: 10, y: 10, r: 4 }, { x: 30, y: 8, r: 6 },
+                        { x: 15, y: 28, r: 5 }, { x: 35, y: 25, r: 4 },
+                        { x: 5, y: 35, r: 3 }, { x: 25, y: 35, r: 5 }
+                    ];
+                    clasts.forEach(c => {
+                        pCtx.beginPath(); pCtx.arc(c.x, c.y, c.r, 0, Math.PI * 2); pCtx.stroke();
+                    });
+                }
+                return ctx.createPattern(pCanvas, 'repeat');
+            };
+
+            const getSharedStyle = (p1, p2, poly, allPolys, drawAreaRight, colAgeW) => {
+                const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+                if (Math.abs(p1.x - colAgeW) < 10 && Math.abs(p2.x - colAgeW) < 10) return { type: 'none' };
+                if (Math.abs(p1.x - drawAreaRight) < 10 && Math.abs(p2.x - drawAreaRight) < 10) return { type: 'none' };
+
+                let cy = 0; poly.points.forEach(p => cy += p.y); cy /= poly.points.length;
+                const isBase = mid.y > cy; const isTop = mid.y <= cy;
+
+                for (let other of allPolys) {
+                    if (other.id === poly.id || other.type === 'line') continue;
+                    if (isPointOnPolyBoundary(mid, other.points)) {
+                        let oCy = 0; other.points.forEach(p => oCy += p.y); oCy /= other.points.length;
+                        const oIsBase = mid.y > oCy; const oIsTop = mid.y <= oCy;
+                        if (other.contactPosition === 'both' || (other.contactPosition === 'base' && oIsBase) || (other.contactPosition === 'top' && oIsTop)) {
+                            return { type: other.contactType };
+                        }
+                    }
+                }
+                if (poly.contactPosition === 'both' || (poly.contactPosition === 'base' && isBase) || (poly.contactPosition === 'top' && isTop)) {
+                    return { type: poly.contactType };
+                }
+                return { type: 'concordant' };
+            };
+
+            const drawCanvas = (ctx, canvasWidth, canvasHeight, forExport = false) => {
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+                const drawAreaRight = canvasWidth - colDescWidth;
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, colAgeWidth, canvasHeight);
+                ctx.fillRect(drawAreaRight, 0, colDescWidth, canvasHeight);
+                ctx.fillRect(colAgeWidth, 0, drawAreaRight - colAgeWidth, titleHeight);
+
+                // Cuadrícula guía opcional (solo en pantalla, nunca en exportación)
+                if (!forExport && showGrid) {
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    for (let gx = colAgeWidth; gx <= drawAreaRight; gx += gridSize) {
+                        ctx.moveTo(gx, titleHeight);
+                        ctx.lineTo(gx, canvasHeight);
+                    }
+                    for (let gy = titleHeight; gy <= canvasHeight; gy += gridSize) {
+                        ctx.moveTo(colAgeWidth, gy);
+                        ctx.lineTo(drawAreaRight, gy);
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(colAgeWidth, titleHeight, canvasWidth - colAgeWidth - colDescWidth, canvasHeight - titleHeight);
+                ctx.clip();
+
+                polygons.forEach(poly => {
+                    if (poly.points.length < 2) return;
+
+                    if (poly.type === 'line') {
+                        for (let i = 0; i < poly.points.length - 1; i++) {
+                            drawDecoratedSegment(
+                                ctx,
+                                poly.points[i],
+                                poly.points[i + 1],
+                                poly.lineType || 'normal',
+                                poly.color || '#000',
+                                selectedId === poly.id && !forExport
+                            );
+                        }
+                        return;
+                    }
+
+                    const drawPath = () => {
+                        ctx.beginPath();
+                        ctx.moveTo(poly.points[0].x, poly.points[0].y);
+                        for (let i = 0; i < poly.points.length; i++) {
+                            const style = getSharedStyle(poly.points[i], poly.points[(i + 1) % poly.points.length], poly, polygons, drawAreaRight, colAgeWidth);
+                            if (style.type === 'erosive') {
+                                traceErosiveSegment(ctx, poly.points[i], poly.points[(i + 1) % poly.points.length]);
+                            } else {
+                                ctx.lineTo(poly.points[(i + 1) % poly.points.length].x, poly.points[(i + 1) % poly.points.length].y);
+                            }
+                        }
+                    };
+
+                    drawPath();
+                    ctx.fillStyle = poly.color;
+                    ctx.fill();
+
+                    const activePatterns = [poly.pattern1, poly.pattern2, poly.pattern3].filter(p => p && p !== 'none');
+                    if (activePatterns.length > 0) {
+                        let minY = Math.min(...poly.points.map(p => p.y)), maxY = Math.max(...poly.points.map(p => p.y));
+                        let polyH = maxY - minY, sectionH = polyH / activePatterns.length;
+                        activePatterns.forEach((pat, index) => {
+                            ctx.save();
+                            drawPath();
+                            ctx.clip();
+                            let sectionTop = minY + (index * sectionH);
+                            ctx.beginPath();
+                            ctx.rect(0, sectionTop, canvasWidth, sectionH);
+                            ctx.clip();
+                            ctx.fillStyle = getPattern(ctx, pat, 'transparent');
+                            ctx.fill();
+                            ctx.restore();
+                        });
+                    }
+
+                    for (let i = 0; i < poly.points.length; i++) {
+                        const style = getSharedStyle(poly.points[i], poly.points[(i + 1) % poly.points.length], poly, polygons, drawAreaRight, colAgeWidth);
+                        if (style.type === 'none') continue;
+                        drawDecoratedSegment(
+                            ctx,
+                            poly.points[i],
+                            poly.points[(i + 1) % poly.points.length],
+                            style.type,
+                            '#000',
+                            selectedId === poly.id && !forExport
+                        );
+                    }
+                });
+
+                geoSymbols.forEach(sym => {
+                    drawGeoSymbol(ctx, {
+                        ...sym,
+                        color: (selectedSymbolId === sym.id && !forExport) ? '#3b82f6' : sym.color
+                    });
+                    if (selectedSymbolId === sym.id && !forExport) {
+                        ctx.save();
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(sym.x - 14, sym.y - 14, 28, 28);
+                        ctx.restore();
+                    }
+                });
+
+                if (!forExport && currentPoints.length > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+                    for (let i = 1; i < currentPoints.length; i++) ctx.lineTo(currentPoints[i].x, currentPoints[i].y);
+                    if (!isDrawingFreehand && mode !== 'draw_freehand') {
+                        ctx.lineTo(snapPoint?.x || mousePos.x, snapPoint?.y || mousePos.y);
+                    }
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash(isDrawingFreehand ? [] : [5, 5]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    if (!isDrawingFreehand) {
+                        currentPoints.forEach((p, idx) => {
+                            const isFirst = idx === 0;
+                            const isLast = idx === currentPoints.length - 1;
+                            ctx.fillStyle = (isFirst && isClosingSnap) || (mode === 'draw_line' && isLast && isClosingSnap) ? '#10b981' : '#ef4444';
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, (isFirst && isClosingSnap) ? 6 : 4, 0, Math.PI * 2);
+                            ctx.fill();
+                        });
+                    }
+                }
+
+                if (!forExport && mode === 'edit_vectors' && selectedId) {
+                    const selP = polygons.find(p => p.id === selectedId);
+                    if (selP) {
+                        selP.points.forEach(pt => {
+                            ctx.fillStyle = '#f59e0b';
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.stroke();
+                        });
+                    }
+                }
+
+                ctx.restore();
+
+                floatingTexts.forEach(t => {
+                    ctx.save();
+                    ctx.font = `bold ${t.size}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = (selectedTextId === t.id && !forExport) ? '#3b82f6' : t.color;
+                    ctx.fillText(t.text, t.x, t.y);
+                    if (selectedTextId === t.id && !forExport) {
+                        const m = ctx.measureText(t.text);
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(t.x - m.width / 2 - 4, t.y - t.size / 2 - 2, m.width + 8, t.size + 4);
+                    }
+                    ctx.restore();
+                });
+
+                // Encabezados de columnas
+                ctx.fillStyle = '#1f2937';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Edad', colAgeWidth / 2, titleHeight / 2 + 6);
+                ctx.fillText('Formación', colAgeWidth + (drawAreaRight - colAgeWidth) / 2, titleHeight / 2 + 6);
+                ctx.fillText('Observaciones', drawAreaRight + colDescWidth / 2, titleHeight / 2 + 6);
+
+                // Orientación cardinal del afloramiento (opcional)
+                if (orientationLeft.trim()) {
+                    ctx.font = 'bold 13px sans-serif';
+                    ctx.fillStyle = '#374151';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(orientationLeft.trim(), colAgeWidth + 12, titleHeight / 2 + 5);
+                }
+                if (orientationRight.trim()) {
+                    ctx.font = 'bold 13px sans-serif';
+                    ctx.fillStyle = '#374151';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(orientationRight.trim(), drawAreaRight - 12, titleHeight / 2 + 5);
+                }
+
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(colAgeWidth, 0); ctx.lineTo(colAgeWidth, canvasHeight);
+                ctx.moveTo(drawAreaRight, 0); ctx.lineTo(drawAreaRight, canvasHeight);
+                ctx.moveTo(0, titleHeight); ctx.lineTo(canvasWidth, titleHeight);
+                ctx.stroke();
+            };
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (canvas) drawCanvas(canvas.getContext('2d'), dimensions.width, dimensions.height, false);
+            }, [polygons, floatingTexts, geoSymbols, currentPoints, mousePos, snapPoint, mode, selectedId, selectedTextId, selectedSymbolId, draggingVertex, dimensions, bgColor, isClosingSnap, isDrawingFreehand, showGrid, orientationLeft, orientationRight]);
+
+            // Atajos de teclado (Ctrl+Z, Delete, Enter, Escape)
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    const tag = document.activeElement?.tagName;
+                    const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+                    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !isTyping) {
+                        e.preventDefault();
+                        handleUndo();
+                        return;
+                    }
+
+                    if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping) {
+                        if (selectedId) {
+                            e.preventDefault();
+                            saveHistory();
+                            setPolygons(prev => prev.filter(p => p.id !== selectedId));
+                            setSelectedId(null);
+                        } else if (selectedSymbolId) {
+                            e.preventDefault();
+                            saveHistory();
+                            setGeoSymbols(prev => prev.filter(s => s.id !== selectedSymbolId));
+                            setSelectedSymbolId(null);
+                        } else if (selectedTextId) {
+                            e.preventDefault();
+                            saveHistory();
+                            setFloatingTexts(prev => prev.filter(t => t.id !== selectedTextId));
+                            setSelectedTextId(null);
+                        }
+                        return;
+                    }
+
+                    if (e.key === 'Enter' && currentPoints.length >= 2) {
+                        closePolygon();
+                    } else if (e.key === 'Escape') {
+                        setCurrentPoints([]);
+                        setIsDrawingFreehand(false);
+                        setDraggingSymbolId(null);
+                        setDraggingPoly(null);
+                        setDraggingVertex(null);
+                        setDraggingTextId(null);
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [currentPoints, mode, polygons, activeLineType, selectedId, selectedSymbolId, selectedTextId, history]);
+
+            const getMouseCoords = (e) => {
+                const rect = canvasRef.current.getBoundingClientRect();
+                return {
+                    x: (e.clientX - rect.left) / zoom,
+                    y: (e.clientY - rect.top) / zoom
+                };
+            };
+
+            const applyGridSnap = (pt) => {
+                if (!snapToGrid) return pt;
+                return {
+                    x: Math.round((pt.x - colAgeWidth) / gridSize) * gridSize + colAgeWidth,
+                    y: Math.round((pt.y - titleHeight) / gridSize) * gridSize + titleHeight
+                };
+            };
+
+            const closePolygon = (pointsOverride = null) => {
+                const pts = pointsOverride || currentPoints;
+                if (!pts || pts.length < 2) {
+                    setCurrentPoints([]);
+                    setIsDrawingFreehand(false);
+                    return;
+                }
+                saveHistory();
+                const isLine = mode === 'draw_line';
+                const defaultLineName = isLine ? (LINE_TYPES[activeLineType]?.name || 'Estructura') : `Fm. ${polygons.filter(p => p.type !== 'line').length + 1}`;
+                const newObj = {
+                    id: Date.now().toString(),
+                    type: isLine ? 'line' : 'polygon',
+                    name: defaultLineName,
+                    points: pts,
+                    color: isLine ? '#000000' : '#5c8a9e',
+                    pattern1: 'none',
+                    pattern2: 'none',
+                    pattern3: 'none',
+                    contactType: 'concordant',
+                    contactPosition: 'base',
+                    lineType: isLine ? activeLineType : 'normal'
+                };
+                setPolygons(prev => [...prev, newObj]);
+                setCurrentPoints([]);
+                setIsDrawingFreehand(false);
+                setSelectedId(newObj.id);
+                setSelectedTextId(null);
+                setSelectedSymbolId(null);
+                setMode('select');
+                setIsClosingSnap(false);
+                setSnapPoint(null);
+            };
+
+            const handleMouseDown = (e) => {
+                const { x, y } = getMouseCoords(e);
+
+                if (draggingSymbolId || draggingTextId || draggingPoly || draggingVertex) {
+                    setDraggingSymbolId(null);
+                    setDraggingTextId(null);
+                    setDraggingPoly(null);
+                    setDraggingVertex(null);
+                    return;
+                }
+
+                if (mode === 'draw_freehand') {
+                    const isInDrawZone = x > colAgeWidth && x < dimensions.width - colDescWidth && y > titleHeight;
+                    if (isInDrawZone) {
+                        setIsDrawingFreehand(true);
+                        const startPt = snapPoint || { x, y };
+                        setCurrentPoints([startPt]);
+                    }
+                    return;
+                }
+
+                if (mode === 'draw_poly' || mode === 'draw_line' || mode === 'add_symbol') {
+                    return;
+                }
+
+                if (mode === 'select' || mode === 'move') {
+                    for (let i = geoSymbols.length - 1; i >= 0; i--) {
+                        const sym = geoSymbols[i];
+                        if (Math.hypot(sym.x - x, sym.y - y) < 20) {
+                            saveHistory();
+                            setDraggingSymbolId(sym.id);
+                            setSelectedSymbolId(sym.id);
+                            setSelectedId(null);
+                            setSelectedTextId(null);
+                            return;
+                        }
+                    }
+                }
+
+                if (mode === 'select' || mode === 'move' || mode === 'add_text') {
+                    const ctx = canvasRef.current.getContext('2d');
+                    for (let t of floatingTexts) {
+                        ctx.font = `bold ${t.size}px sans-serif`;
+                        const m = ctx.measureText(t.text);
+                        if (x >= t.x - m.width / 2 - 12 && x <= t.x + m.width / 2 + 12 &&
+                            y >= t.y - t.size / 2 - 12 && y <= t.y + t.size / 2 + 12) {
+                            saveHistory();
+                            setDraggingTextId(t.id);
+                            setSelectedTextId(t.id);
+                            setSelectedId(null);
+                            setSelectedSymbolId(null);
+                            return;
+                        }
+                    }
+                }
+
+                if (mode === 'move') {
+                    const ctx = canvasRef.current.getContext('2d');
+                    let clickedPoly = null;
+
+                    for (let i = polygons.length - 1; i >= 0; i--) {
+                        const poly = polygons[i];
+                        if (poly.type === 'line') {
+                            for (let j = 0; j < poly.points.length - 1; j++) {
+                                if (getDistToSegment({ x, y }, poly.points[j], poly.points[j + 1]).dist < 12) {
+                                    clickedPoly = poly;
+                                    break;
+                                }
+                            }
+                            if (clickedPoly) break;
+                        }
+                    }
+
+                    if (!clickedPoly) {
+                        for (let i = polygons.length - 1; i >= 0; i--) {
+                            const poly = polygons[i];
+                            if (poly.type === 'line') continue;
+                            ctx.beginPath();
+                            ctx.moveTo(poly.points[0].x, poly.points[0].y);
+                            poly.points.forEach(p => ctx.lineTo(p.x, p.y));
+                            ctx.closePath();
+                            if (ctx.isPointInPath(x, y)) {
+                                clickedPoly = poly;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (clickedPoly) {
+                        saveHistory();
+                        setSelectedId(clickedPoly.id);
+                        setSelectedTextId(null);
+                        setSelectedSymbolId(null);
+                        setDraggingPoly({
+                            polyId: clickedPoly.id,
+                            startX: x,
+                            startY: y,
+                            initialPoints: clickedPoly.points.map(pt => ({ ...pt }))
+                        });
+                        return;
+                    }
+                }
+
+                if (mode === 'edit_vectors' && selectedId) {
+                    const poly = polygons.find(p => p.id === selectedId);
+                    if (poly) {
+                        const ptIdx = poly.points.findIndex(pt => Math.hypot(pt.x - x, pt.y - y) < 16);
+                        if (ptIdx !== -1) {
+                            if (e.shiftKey) {
+                                const minPts = poly.type === 'line' ? 2 : 3;
+                                if (poly.points.length > minPts) {
+                                    saveHistory();
+                                    setPolygons(prev => prev.map(p => p.id === poly.id ? {
+                                        ...p,
+                                        points: p.points.filter((_, idx) => idx !== ptIdx)
+                                    } : p));
+                                }
+                                return;
+                            }
+                            saveHistory();
+                            setDraggingVertex({ polyId: poly.id, pointIndex: ptIdx });
+                            return;
+                        }
+                    }
+                }
+            };
+
+            const handleMouseMove = (e) => {
+                const { x, y } = getMouseCoords(e);
+                setMousePos({ x, y });
+
+                if (draggingSymbolId) {
+                    setGeoSymbols(prev => prev.map(s => s.id === draggingSymbolId ? { ...s, x, y } : s));
+                    return;
+                }
+                if (draggingPoly) {
+                    const dx = x - draggingPoly.startX;
+                    const dy = y - draggingPoly.startY;
+                    setPolygons(prev => prev.map(p => p.id === draggingPoly.polyId ? {
+                        ...p,
+                        points: draggingPoly.initialPoints.map(pt => ({ x: pt.x + dx, y: pt.y + dy }))
+                    } : p));
+                    return;
+                }
+                if (draggingVertex) {
+                    const targetPt = applyGridSnap({ x, y });
+                    setPolygons(prev => prev.map(p => p.id === draggingVertex.polyId ? {
+                        ...p,
+                        points: p.points.map((pt, i) => i === draggingVertex.pointIndex ? targetPt : pt)
+                    } : p));
+                    return;
+                }
+                if (draggingTextId) {
+                    setFloatingTexts(prev => prev.map(t => t.id === draggingTextId ? { ...t, x, y } : t));
+                    return;
+                }
+                if (isDrawingFreehand && mode === 'draw_freehand') {
+                    const clampedX = Math.max(colAgeWidth, Math.min(dimensions.width - colDescWidth, x));
+                    const clampedY = Math.max(titleHeight, y);
+                    setCurrentPoints(prev => {
+                        const last = prev[prev.length - 1];
+                        if (!last || Math.hypot(last.x - clampedX, last.y - clampedY) > 4) {
+                            return [...prev, { x: clampedX, y: clampedY }];
+                        }
+                        return prev;
+                    });
+                    return;
+                }
+
+                const isInDrawZone = x >= colAgeWidth - 15 && x <= dimensions.width - colDescWidth + 15 && y >= titleHeight - 15;
+                if (mode.startsWith('draw') && isInDrawZone) {
+                    let foundSnap = null;
+                    let bestDist = 20;
+                    let closing = false;
+
+                    if (mode === 'draw_poly' && currentPoints.length >= 3) {
+                        if (Math.hypot(currentPoints[0].x - x, currentPoints[0].y - y) < 35) {
+                            foundSnap = currentPoints[0];
+                            closing = true;
+                        }
+                    } else if (mode === 'draw_line' && currentPoints.length >= 2) {
+                        const lastPt = currentPoints[currentPoints.length - 1];
+                        if (Math.hypot(lastPt.x - x, lastPt.y - y) < 25) {
+                            foundSnap = lastPt;
+                            closing = true;
+                        }
+                    }
+
+                    if (!foundSnap) {
+                        for (let poly of polygons) {
+                            for (let pt of poly.points) {
+                                if (Math.hypot(pt.x - x, pt.y - y) < bestDist) {
+                                    foundSnap = pt;
+                                    bestDist = Math.hypot(pt.x - x, pt.y - y);
+                                }
+                            }
+                        }
+                    }
+
+                    if (!foundSnap && snapToGrid) {
+                        foundSnap = applyGridSnap({
+                            x: Math.max(colAgeWidth, Math.min(dimensions.width - colDescWidth, x)),
+                            y: Math.max(titleHeight, y)
+                        });
+                    }
+
+                    setSnapPoint(foundSnap);
+                    setIsClosingSnap(closing);
+                } else {
+                    setSnapPoint(null);
+                    setIsClosingSnap(false);
+                }
+            };
+
+            const handleMouseUp = () => {
+                if (mode === 'draw_freehand' && isDrawingFreehand) {
+                    setIsDrawingFreehand(false);
+                    if (currentPoints.length >= 3) {
+                        closePolygon(currentPoints);
+                    } else {
+                        setCurrentPoints([]);
+                    }
+                }
+                setDraggingVertex(null);
+                setDraggingPoly(null);
+                setDraggingTextId(null);
+                setDraggingSymbolId(null);
+            };
+
+            const handleCanvasClick = (e) => {
+                const { x, y } = getMouseCoords(e);
+
+                if (mode === 'draw_freehand') return;
+
+                if (mode === 'add_symbol') {
+                    const isInDrawZone = x > colAgeWidth && x < dimensions.width - colDescWidth && y > titleHeight;
+                    if (isInDrawZone) {
+                        saveHistory();
+                        const newSym = {
+                            id: Date.now().toString(),
+                            symbolType: activeSymbolType,
+                            name: GEO_SYMBOLS[activeSymbolType]?.name || 'Símbolo',
+                            x,
+                            y,
+                            size: 24,
+                            rotation: 0,
+                            color: '#000000'
+                        };
+                        setGeoSymbols([...geoSymbols, newSym]);
+                        setSelectedSymbolId(newSym.id);
+                        setSelectedId(null);
+                        setSelectedTextId(null);
+                    }
+                    return;
+                }
+
+                if (mode === 'select') {
+                    for (let i = geoSymbols.length - 1; i >= 0; i--) {
+                        const sym = geoSymbols[i];
+                        if (Math.hypot(sym.x - x, sym.y - y) < 20) {
+                            setSelectedSymbolId(sym.id);
+                            setSelectedId(null);
+                            setSelectedTextId(null);
+                            return;
+                        }
+                    }
+
+                    const ctx = canvasRef.current.getContext('2d');
+                    let clickedTId = null;
+                    for (let t of floatingTexts) {
+                        ctx.font = `bold ${t.size}px sans-serif`;
+                        const m = ctx.measureText(t.text);
+                        if (x >= t.x - m.width / 2 - 10 && x <= t.x + m.width / 2 + 10 &&
+                            y >= t.y - t.size / 2 - 10 && y <= t.y + t.size / 2 + 10) {
+                            clickedTId = t.id;
+                            break;
+                        }
+                    }
+                    if (clickedTId) {
+                        setSelectedTextId(clickedTId);
+                        setSelectedId(null);
+                        setSelectedSymbolId(null);
+                        return;
+                    }
+                }
+
+                if (mode === 'add_text') {
+                    saveHistory();
+                    const newT = { id: Date.now().toString(), text: 'Nuevo Texto', x, y, size: 14, color: '#000' };
+                    setFloatingTexts([...floatingTexts, newT]);
+                    setSelectedTextId(newT.id);
+                    setSelectedId(null);
+                    setSelectedSymbolId(null);
+                    setMode('select');
+                    return;
+                }
+
+                const isInDrawZone = x >= colAgeWidth - 5 && x <= dimensions.width - colDescWidth + 5 && y >= titleHeight - 5;
+                if (mode === 'select' || mode === 'edit_vectors') {
+                    const ctx = canvasRef.current.getContext('2d');
+                    let clickedPolyId = null;
+
+                    for (let i = polygons.length - 1; i >= 0; i--) {
+                        const poly = polygons[i];
+                        if (poly.type === 'line') {
+                            for (let j = 0; j < poly.points.length - 1; j++) {
+                                if (getDistToSegment({ x, y }, poly.points[j], poly.points[j + 1]).dist < 10) {
+                                    clickedPolyId = poly.id;
+                                    break;
+                                }
+                            }
+                            if (clickedPolyId) break;
+                        }
+                    }
+
+                    if (!clickedPolyId) {
+                        for (let i = polygons.length - 1; i >= 0; i--) {
+                            const poly = polygons[i];
+                            if (poly.type === 'line') continue;
+                            ctx.beginPath();
+                            ctx.moveTo(poly.points[0].x, poly.points[0].y);
+                            poly.points.forEach(p => ctx.lineTo(p.x, p.y));
+                            ctx.closePath();
+                            if (ctx.isPointInPath(x, y)) {
+                                clickedPolyId = poly.id;
+                                break;
+                            }
+                        }
+                    }
+
+                    setSelectedId(clickedPolyId);
+                    if (clickedPolyId) {
+                        setSelectedTextId(null);
+                        setSelectedSymbolId(null);
+                    }
+                } else if ((mode === 'draw_poly' || mode === 'draw_line') && isInDrawZone) {
+                    const rawPt = {
+                        x: Math.max(colAgeWidth, Math.min(dimensions.width - colDescWidth, x)),
+                        y: Math.max(titleHeight, y)
+                    };
+                    const clampedPt = snapPoint || applyGridSnap(rawPt);
+
+                    if (mode === 'draw_line' && currentPoints.length >= 2) {
+                        const last = currentPoints[currentPoints.length - 1];
+                        if (Math.hypot(last.x - x, last.y - y) < 25 || isClosingSnap) {
+                            closePolygon(currentPoints);
+                            return;
+                        }
+                    }
+
+                    if (mode === 'draw_poly' && currentPoints.length >= 3) {
+                        const first = currentPoints[0];
+                        if (Math.hypot(first.x - x, first.y - y) < 35 || isClosingSnap) {
+                            closePolygon(currentPoints);
+                            return;
+                        }
+                    }
+
+                    setCurrentPoints(prev => [...prev, clampedPt]);
+                }
+            };
+
+            const handleDoubleClick = (e) => {
+                if ((mode === 'draw_poly' && currentPoints.length >= 3) || (mode === 'draw_line' && currentPoints.length >= 2)) {
+                    closePolygon(currentPoints);
+                    return;
+                }
+                if (mode === 'edit_vectors' && selectedId) {
+                    const { x, y } = getMouseCoords(e);
+                    const poly = polygons.find(p => p.id === selectedId);
+                    if (!poly) return;
+                    const segCount = poly.type === 'line' ? poly.points.length - 1 : poly.points.length;
+                    let bestIdx = -1;
+                    let bestDist = 14;
+                    let bestProj = null;
+                    for (let i = 0; i < segCount; i++) {
+                        const p1 = poly.points[i];
+                        const p2 = poly.points[(i + 1) % poly.points.length];
+                        const res = getDistToSegment({ x, y }, p1, p2);
+                        if (res.dist < bestDist) {
+                            bestDist = res.dist;
+                            bestIdx = i + 1;
+                            bestProj = res.proj;
+                        }
+                    }
+                    if (bestIdx !== -1 && bestProj) {
+                        saveHistory();
+                        setPolygons(prev => prev.map(p => {
+                            if (p.id !== poly.id) return p;
+                            const nextPts = [...p.points];
+                            nextPts.splice(bestIdx, 0, bestProj);
+                            return { ...p, points: nextPts };
+                        }));
+                    }
+                }
+            };
+
+            const getLegendData = () => {
+                const uniqueUnits = polygons.filter(p => p.type === 'polygon').reduce((acc, p) => {
+                    if (!acc.find(f => f.name === p.name && f.color === p.color)) acc.push(p);
+                    return acc;
+                }, []);
+
+                const litEntries = [];
+                polygons.filter(p => p.type === 'polygon').forEach(p => {
+                    [p.pattern1, p.pattern2, p.pattern3].forEach(pat => {
+                        if (pat && pat !== 'none') {
+                            const key = `${pat}`;
+                            if (!litEntries.find(item => item.key === key)) {
+                                litEntries.push({
+                                    key,
+                                    pattern: pat,
+                                    color: p.color,
+                                    name: PATTERNS[pat]?.name || pat,
+                                    unitName: p.name
+                                });
+                            }
+                        }
+                    });
+                });
+
+                const structEntries = [{ key: 'contact_concordant', kind: 'line', styleType: 'concordant', color: '#000', label: 'Contacto Concordante' }];
+
+                polygons.forEach(p => {
+                    if (p.type === 'polygon' && p.contactType && p.contactType !== 'concordant' && p.contactType !== 'none') {
+                        const k = `contact_${p.contactType}`;
+                        if (!structEntries.find(item => item.key === k)) {
+                            structEntries.push({
+                                key: k,
+                                kind: 'line',
+                                styleType: p.contactType,
+                                color: '#000',
+                                label: CONTACT_TYPES[p.contactType]?.name || p.contactType
+                            });
+                        }
+                    } else if (p.type === 'line') {
+                        const typeName = LINE_TYPES[p.lineType]?.name || 'Línea de Dibujo';
+                        const customName = p.name && p.name.trim() !== '' && p.name !== typeName
+                            ? `${p.name} (${typeName})`
+                            : (p.name || typeName);
+                        const k = `line_${p.lineType}_${customName}_${p.color}`;
+                        if (!structEntries.find(item => item.key === k)) {
+                            structEntries.push({
+                                key: k,
+                                kind: 'line',
+                                styleType: p.lineType || 'normal',
+                                color: p.color || '#000',
+                                label: customName
+                            });
+                        }
+                    }
+                });
+
+                geoSymbols.forEach(sym => {
+                    const symTitle = GEO_SYMBOLS[sym.symbolType]?.name || sym.name;
+                    const customLabel = sym.name && sym.name !== symTitle ? `${sym.name} (${symTitle})` : symTitle;
+                    const k = `sym_${sym.symbolType}_${customLabel}_${sym.color}`;
+                    if (!structEntries.find(item => item.key === k)) {
+                        structEntries.push({
+                            key: k,
+                            kind: 'symbol',
+                            symbolType: sym.symbolType,
+                            color: sym.color || '#000',
+                            label: customLabel
+                        });
+                    }
+                });
+
+                return { uniqueUnits, litEntries, structEntries };
+            };
+
+            const handleExport = () => {
+                const scale = dimensions.width > 1800 ? 2 : 3;
+                const { uniqueUnits, litEntries, structEntries } = getLegendData();
+
+                const maxRows = Math.max(uniqueUnits.length, litEntries.length, structEntries.length, 1);
+                const legendHeight = 150 + (maxRows * 38);
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = dimensions.width * scale;
+                exportCanvas.height = (dimensions.height + legendHeight) * scale;
+                const eCtx = exportCanvas.getContext('2d');
+                eCtx.scale(scale, scale);
+
+                drawCanvas(eCtx, dimensions.width, dimensions.height, true);
+
+                eCtx.fillStyle = '#ffffff';
+                eCtx.fillRect(0, dimensions.height, dimensions.width, legendHeight);
+                eCtx.strokeStyle = '#e5e7eb';
+                eCtx.lineWidth = 1;
+                eCtx.beginPath();
+                eCtx.moveTo(0, dimensions.height);
+                eCtx.lineTo(dimensions.width, dimensions.height);
+                eCtx.stroke();
+
+                eCtx.fillStyle = '#000';
+                eCtx.font = 'bold 22px sans-serif';
+                eCtx.textAlign = 'center';
+                eCtx.fillText('REFERENCIAS', dimensions.width / 2, dimensions.height + 40);
+
+                const col1X = 40;
+                const col2X = Math.round(dimensions.width * 0.34);
+                const col3X = Math.round(dimensions.width * 0.66);
+
+                let lY = dimensions.height + 80;
+                eCtx.font = 'bold 16px sans-serif';
+                eCtx.textAlign = 'left';
+
+                eCtx.fillStyle = '#000';
+                eCtx.fillText('Formaciones', col1X, lY);
+                uniqueUnits.forEach((f, i) => {
+                    const rowY = lY + 20 + (i * 36);
+                    eCtx.fillStyle = f.color;
+                    eCtx.fillRect(col1X, rowY, 44, 24);
+                    eCtx.strokeStyle = '#000';
+                    eCtx.lineWidth = 1;
+                    eCtx.strokeRect(col1X, rowY, 44, 24);
+                    eCtx.fillStyle = '#000';
+                    eCtx.font = '13px sans-serif';
+                    eCtx.fillText(f.name, col1X + 54, rowY + 17);
+                });
+
+                eCtx.fillStyle = '#000';
+                eCtx.font = 'bold 16px sans-serif';
+                eCtx.fillText('Litologías', col2X, lY);
+                litEntries.forEach((item, i) => {
+                    const rowY = lY + 20 + (i * 36);
+                    eCtx.fillStyle = item.color || '#ffffff';
+                    eCtx.fillRect(col2X, rowY, 44, 24);
+                    eCtx.fillStyle = getPattern(eCtx, item.pattern, 'transparent');
+                    eCtx.fillRect(col2X, rowY, 44, 24);
+                    eCtx.strokeStyle = '#000';
+                    eCtx.lineWidth = 1;
+                    eCtx.strokeRect(col2X, rowY, 44, 24);
+                    eCtx.fillStyle = '#000';
+                    eCtx.font = '13px sans-serif';
+                    eCtx.fillText(item.name, col2X + 54, rowY + 17);
+                });
+
+                eCtx.fillStyle = '#000';
+                eCtx.font = 'bold 16px sans-serif';
+                eCtx.fillText('Contactos y Estructuras', col3X, lY);
+                structEntries.forEach((s, i) => {
+                    const midY = lY + 32 + (i * 36);
+                    if (s.kind === 'symbol') {
+                        drawGeoSymbol(eCtx, { x: col3X + 22, y: midY, size: 20, symbolType: s.symbolType, color: s.color });
+                    } else {
+                        drawDecoratedSegment(eCtx, { x: col3X, y: midY }, { x: col3X + 48, y: midY }, s.styleType, s.color, false);
+                    }
+                    eCtx.fillStyle = '#000';
+                    eCtx.font = '13px sans-serif';
+                    eCtx.fillText(s.label, col3X + 58, midY + 5);
+                });
+
+                const link = document.createElement('a');
+                link.download = `diagrama-geologico-${dimensions.width}px.png`;
+                link.href = exportCanvas.toDataURL();
+                link.click();
+                showToast('Imagen PNG HD exportada', 'success');
+            };
+
+            const confirmReset = () => {
+                saveHistory();
+                setPolygons([]);
+                setFloatingTexts([]);
+                setGeoSymbols([]);
+                setCurrentPoints([]);
+                setSelectedId(null);
+                setSelectedTextId(null);
+                setSelectedSymbolId(null);
+                setExtraTopSpace(0);
+                setOrientationLeft('');
+                setOrientationRight('');
+                setDimensions(prev => ({ ...prev, height: 600 }));
+                try {
+                    localStorage.removeItem('geo_v15_polys');
+                    localStorage.removeItem('geo_v15_texts');
+                    localStorage.removeItem('geo_v15_syms');
+                    localStorage.removeItem('geo_v15_extra_top');
+                    localStorage.removeItem('geo_v15_ori_l');
+                    localStorage.removeItem('geo_v15_ori_r');
+                } catch (e) {}
+                setShowResetModal(false);
+                showToast('Lienzo reiniciado', 'info');
+            };
+
+            const selectedPoly = polygons.find(p => p.id === selectedId);
+            const selectedText = floatingTexts.find(t => t.id === selectedTextId);
+            const selectedSymbol = geoSymbols.find(s => s.id === selectedSymbolId);
+            const { uniqueUnits, litEntries, structEntries } = getLegendData();
+
+            return (
+                <div className="flex h-screen bg-gray-100 font-sans text-gray-800 overflow-hidden relative">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".json"
+                        onChange={handleLoadProject}
+                        className="hidden"
+                    />
+
+                    {/* Notificación flotante tipo Toast */}
+                    {toastMsg && (
+                        <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full shadow-xl text-xs font-bold tracking-wide text-white transition-all ${
+                            toastMsg.type === 'error' ? 'bg-red-600' : toastMsg.type === 'success' ? 'bg-emerald-600' : 'bg-slate-800'
+                        }`}>
+                            {toastMsg.text}
+                        </div>
+                    )}
+
+                    {/* Modal de confirmación de reinicio */}
+                    {showResetModal && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                                <h3 className="text-lg font-bold text-gray-900">¿Reiniciar todo el lienzo?</h3>
+                                <p className="text-sm text-gray-600">Se borrarán todas las formaciones, estructuras y textos guardados. Podés revertirlo con Deshacer (Ctrl+Z) antes de recargar.</p>
+                                <div className="flex justify-end gap-3 pt-2">
+                                    <button onClick={() => setShowResetModal(false)} className="px-4 py-2 border rounded-lg text-sm font-semibold hover:bg-gray-50">Cancelar</button>
+                                    <button onClick={confirmReset} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">Sí, reiniciar</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Barra lateral izquierda de herramientas */}
+                    <div className="w-16 bg-white border-r shadow-md flex flex-col items-center py-3 space-y-1.5 z-20 shrink-0 overflow-y-auto">
+                        <button
+                            onClick={() => setMode('select')}
+                            className={`p-2.5 rounded-xl transition ${mode === 'select' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
+                            title="Seleccionar elemento"
+                        >
+                            <Icon name="select" size={20} />
+                        </button>
+                        <button
+                            onClick={() => setMode('move')}
+                            className={`p-2.5 rounded-xl transition ${mode === 'move' ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100'}`}
+                            title="Seleccionar y Mover Figura"
+                        >
+                            <Icon name="move" size={20} />
+                        </button>
+                        <button
+                            onClick={() => setMode('edit_vectors')}
+                            className={`p-2.5 rounded-xl transition ${mode === 'edit_vectors' ? 'bg-amber-100 text-amber-600' : 'hover:bg-gray-100'}`}
+                            title="Editar Nodos / Vértices (Doble clic agrega nodo, Shift+clic borra)"
+                        >
+                            <Icon name="target" size={20} />
+                        </button>
+                        <button
+                            onClick={() => setMode('add_text')}
+                            className={`p-2.5 rounded-xl transition ${mode === 'add_text' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
+                            title="Insertar Texto"
+                        >
+                            <Icon name="text" size={20} />
+                        </button>
+
+                        <div className="w-8 h-px bg-gray-200 my-1"></div>
+
+                        <button
+                            onClick={() => setMode('draw_poly')}
+                            className={`p-2.5 rounded-xl transition ${mode === 'draw_poly' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
+                            title="Polígono Recto"
+                        >
+                            <Icon name="pen" size={20} />
+                        </button>
+                        <button
+                            onClick={() => setMode('draw_freehand')}
+                            className={`p-2.5 rounded-xl transition ${mode === 'draw_freehand' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
+                            title="Mano Alzada"
+                        >
+                            <Icon name="pencil" size={20} />
+                        </button>
+                        <button
+                            onClick={() => setMode('draw_line')}
+                            className={`p-2.5 rounded-xl transition ${mode === 'draw_line' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
+                            title="Dibujar Falla / Estructura Lineal"
+                        >
+                            <Icon name="line" size={20} />
+                        </button>
+                        <button
+                            onClick={() => setMode('add_symbol')}
+                            className={`p-2.5 rounded-xl transition ${mode === 'add_symbol' ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'}`}
+                            title="Estampar Símbolo Geológico / Fósil / Buzamiento"
+                        >
+                            <Icon name="stamp" size={20} />
+                        </button>
+
+                        <div className="w-8 h-px bg-gray-200 my-1"></div>
+
+                        <button
+                            onClick={() => setShowGrid(!showGrid)}
+                            className={`p-2.5 rounded-xl transition ${showGrid ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-gray-100 text-gray-500'}`}
+                            title="Mostrar / Ocultar Cuadrícula Guía"
+                        >
+                            <Icon name="grid" size={20} />
+                        </button>
+
+                        <div className="flex-grow"></div>
+
+                        <button
+                            onClick={handleSaveProject}
+                            className="p-2.5 text-sky-600 hover:bg-sky-50 rounded-xl"
+                            title="Guardar Proyecto Editable (.json)"
+                        >
+                            <Icon name="fileJson" size={20} />
+                        </button>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-2.5 text-slate-600 hover:bg-slate-100 rounded-xl"
+                            title="Abrir Proyecto (.json)"
+                        >
+                            <Icon name="upload" size={20} />
+                        </button>
+                        <button
+                            onClick={() => setShowResetModal(true)}
+                            className="p-2.5 text-orange-500 hover:bg-orange-50 rounded-xl"
+                            title="Reiniciar Lienzo"
+                        >
+                            <Icon name="reset" size={20} />
+                        </button>
+                        <button
+                            onClick={handleUndo}
+                            disabled={currentPoints.length === 0 && history.length === 0}
+                            className="p-2.5 hover:bg-gray-100 text-gray-500 disabled:opacity-30 rounded-xl"
+                            title="Deshacer (Ctrl+Z)"
+                        >
+                            <Icon name="undo" size={20} />
+                        </button>
+                        <button
+                            onClick={handleExport}
+                            className="p-2.5 text-green-600 hover:bg-green-50 rounded-xl"
+                            title="Exportar Imagen HD con Referencias"
+                        >
+                            <Icon name="download" size={20} />
+                        </button>
+                    </div>
+
+                    {/* Área central con barra superior fija + viewport con scroll X e Y */}
+                    <div className="flex-1 flex flex-col bg-gray-200 overflow-hidden relative">
+                        <div className="bg-white/95 backdrop-blur border-b px-4 py-2 flex flex-wrap items-center gap-2 z-30 shadow-sm shrink-0">
+                            <button
+                                onClick={() => setAutoSave(!autoSave)}
+                                title="Haz clic para activar o desactivar el auto-guardado"
+                                className={`px-2.5 py-1 rounded-full border flex items-center gap-1.5 transition cursor-pointer ${
+                                    autoSave ? 'bg-green-50/70 border-green-200 hover:bg-green-100' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
+                                }`}
+                            >
+                                <div className={`w-2 h-2 rounded-full ${autoSave ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${autoSave ? 'text-green-700' : 'text-gray-500'}`}>
+                                    <Icon name="save" size={12} /> {autoSave ? 'Auto: ON' : 'Auto: OFF'}
+                                </span>
+                            </button>
+
+                            {/* Selector de ancho / formato panorámico */}
+                            <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase px-1.5">Hoja:</span>
+                                {SHEET_PRESETS.map(p => (
+                                    <button
+                                        key={p.width}
+                                        onClick={() => changeSheetWidth(p.width)}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-bold transition ${
+                                            dimensions.width === p.width
+                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                                        }`}
+                                        title={`Ancho ${p.desc}`}
+                                    >
+                                        {p.label}
+                                    </button>
+                                ))}
+                                <div className="flex items-center border-l border-gray-300 pl-1 ml-0.5 gap-0.5">
+                                    <button
+                                        onClick={() => changeSheetWidth(dimensions.width - 100)}
+                                        className="w-5 h-5 flex items-center justify-center rounded hover:bg-white text-xs font-bold text-gray-600"
+                                        title="Reducir ancho (-100px)"
+                                    >-</button>
+                                    <span className="text-[10px] font-mono font-bold text-gray-700 w-12 text-center">{dimensions.width}px</span>
+                                    <button
+                                        onClick={() => changeSheetWidth(dimensions.width + 100)}
+                                        className="w-5 h-5 flex items-center justify-center rounded hover:bg-white text-xs font-bold text-gray-600"
+                                        title="Ampliar ancho (+100px)"
+                                    >+</button>
+                                </div>
+                            </div>
+
+                            {/* Control de Zoom */}
+                            <div className="flex items-center gap-1 bg-gray-100 px-1.5 py-0.5 rounded-lg border border-gray-200">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase">Zoom:</span>
+                                <button
+                                    onClick={() => setZoom(z => Math.max(0.45, Math.round((z - 0.1) * 100) / 100))}
+                                    className="w-5 h-5 flex items-center justify-center rounded hover:bg-white text-xs font-bold text-gray-700"
+                                    title="Alejar"
+                                >-</button>
+                                <span className="text-[10px] font-mono font-bold text-gray-700 w-9 text-center">{Math.round(zoom * 100)}%</span>
+                                <button
+                                    onClick={() => setZoom(z => Math.min(1.5, Math.round((z + 0.1) * 100) / 100))}
+                                    className="w-5 h-5 flex items-center justify-center rounded hover:bg-white text-xs font-bold text-gray-700"
+                                    title="Acercar"
+                                >+</button>
+                                <button
+                                    onClick={handleFitZoom}
+                                    className="px-1.5 py-0.5 rounded text-[10px] font-bold text-blue-600 hover:bg-white border-l border-gray-300 ml-0.5"
+                                    title="Ajustar hoja al ancho de pantalla"
+                                >
+                                    Ajustar
+                                </button>
+                            </div>
+
+                            {/* Compactar altura / encuadrar */}
+                            <button
+                                onClick={handleCompactSheet}
+                                className="px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[10px] font-bold text-gray-700 flex items-center gap-1 transition"
+                                title="Ajustar espacio superior e inferior de la hoja al contenido"
+                            >
+                                <Icon name="compress" size={12} /> Encuadrar
+                            </button>
+
+                            {showGrid && (
+                                <button
+                                    onClick={() => setSnapToGrid(!snapToGrid)}
+                                    className={`px-2 py-1 rounded-lg border text-[10px] font-bold transition ${
+                                        snapToGrid ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                    title="Activar imán a la cuadrícula"
+                                >
+                                    Imán: {snapToGrid ? 'ON' : 'OFF'}
+                                </button>
+                            )}
+
+                            <div className="flex items-center gap-1.5 bg-gray-100 px-2 py-0.5 rounded-lg border border-gray-200">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase">Fondo</span>
+                                <input
+                                    type="color"
+                                    value={bgColor}
+                                    onChange={(e) => setBgColor(e.target.value)}
+                                    className="w-5 h-5 border rounded cursor-pointer p-0 bg-transparent"
+                                    title="Cambiar color de fondo de la hoja"
+                                />
+                            </div>
+
+                            <button
+                                onClick={() => setShowSheetSettings(!showSheetSettings)}
+                                className={`px-2 py-1 rounded-lg border text-[10px] font-bold transition ${
+                                    showSheetSettings ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                }`}
+                                title="Configurar orientación del perfil (O-E, NO-SE, etc.)"
+                            >
+                                Rumbo (O–E)
+                            </button>
+
+                            {currentPoints.length >= 2 && (
+                                <button
+                                    onClick={() => closePolygon(currentPoints)}
+                                    className="px-3 py-1 rounded-full shadow bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ml-auto"
+                                >
+                                    ✓ Terminar / Cerrar Trazo (Enter)
+                                </button>
+                            )}
+                        </div>
+
+                        {showSheetSettings && (
+                            <div className="bg-slate-50 border-b px-4 py-2 flex flex-wrap items-center gap-4 text-xs z-20 shrink-0">
+                                <span className="font-bold text-slate-600 uppercase text-[10px] tracking-wider">Orientación del Afloramiento:</span>
+                                <div className="flex items-center gap-1.5">
+                                    <label className="text-[11px] text-slate-500 font-semibold">Izquierda:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="ej. O / NO"
+                                        value={orientationLeft}
+                                        onChange={(e) => setOrientationLeft(e.target.value)}
+                                        className="w-20 px-2 py-1 border rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <label className="text-[11px] text-slate-500 font-semibold">Derecha:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="ej. E / SE"
+                                        value={orientationRight}
+                                        onChange={(e) => setOrientationRight(e.target.value)}
+                                        className="w-20 px-2 py-1 border rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {[['O', 'E'], ['NO', 'SE'], ['SO', 'NE'], ['N', 'S'], ['', '']].map(([l, r], idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => { setOrientationLeft(l); setOrientationRight(r); }}
+                                            className="px-2 py-0.5 rounded border bg-white hover:bg-blue-50 text-[10px] font-bold text-slate-600"
+                                        >
+                                            {l ? `${l} — ${r}` : 'Limpiar'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Contenedor scrolleable en X e Y */}
+                        <div className="flex-1 overflow-auto relative flex flex-col" ref={containerRef}>
+                            <div className="p-8 min-w-max flex flex-col items-center">
+                                <div
+                                    style={{
+                                        width: dimensions.width * zoom,
+                                        height: dimensions.height * zoom
+                                    }}
+                                    className="relative shrink-0 shadow-2xl bg-white transition-shadow"
+                                >
+                                    <canvas
+                                        ref={canvasRef}
+                                        width={dimensions.width}
+                                        height={dimensions.height}
+                                        style={{
+                                            width: dimensions.width * zoom,
+                                            height: dimensions.height * zoom
+                                        }}
+                                        className={`absolute top-0 left-0 z-10 bg-transparent ${mode.startsWith('draw') ? 'cursor-crosshair' : mode === 'move' ? 'cursor-move' : 'cursor-default'}`}
+                                        onMouseMove={handleMouseMove}
+                                        onMouseDown={handleMouseDown}
+                                        onMouseUp={handleMouseUp}
+                                        onMouseLeave={handleMouseUp}
+                                        onClick={handleCanvasClick}
+                                        onDoubleClick={handleDoubleClick}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-white border-t p-8 shrink-0 mt-auto">
+                                <h3 className="font-black text-center text-gray-800 mb-8 text-xl tracking-widest uppercase">Referencias</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto">
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-400 mb-4 border-b pb-2 uppercase">Formaciones</h4>
+                                        <div className="space-y-3">
+                                            {uniqueUnits.map((f, i) => (
+                                                <div key={i} className="flex items-center gap-3">
+                                                    <div className="w-12 h-7 border border-black shadow-sm shrink-0" style={{ backgroundColor: f.color }}></div>
+                                                    <span className="text-sm font-semibold">{f.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-400 mb-4 border-b pb-2 uppercase">Litologías</h4>
+                                        <div className="space-y-3">
+                                            {litEntries.map((item, i) => (
+                                                <div key={i} className="flex items-center gap-3">
+                                                    <img
+                                                        src={createPatternDataURL(getPattern, item.pattern, item.color)}
+                                                        alt={item.name}
+                                                        className="w-12 h-7 border border-black shadow-sm shrink-0 object-cover"
+                                                    />
+                                                    <span className="text-sm font-medium">{item.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-400 mb-4 border-b pb-2 uppercase">Contactos y Estructuras</h4>
+                                        <div className="space-y-3">
+                                            {structEntries.map((s, i) => (
+                                                <div key={i} className="flex items-center gap-3">
+                                                    {s.kind === 'symbol' ? (
+                                                        <div className="w-12 h-7 flex items-center justify-center shrink-0">
+                                                            <img src={createSymbolPreviewDataURL(s.symbolType, s.color)} alt={s.label} className="h-7 object-contain" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-12 h-7 flex items-center justify-center shrink-0">
+                                                            <img src={createLinePreviewDataURL(s.styleType, s.color)} alt={s.label} className="w-12 h-6 object-contain" />
+                                                        </div>
+                                                    )}
+                                                    <span className="text-sm">{s.label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Panel derecho de propiedades */}
+                    <div className="w-80 bg-white border-l shadow-xl flex flex-col z-20 shrink-0 overflow-y-auto">
+                        <div className="p-4 border-b bg-gray-50 flex items-center gap-2 font-bold text-xs uppercase tracking-widest text-gray-700">
+                            <Icon name="settings" size={16} /> Propiedades y Estructuras
+                        </div>
+
+                        {mode === 'edit_vectors' && (
+                            <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-800 space-y-1">
+                                <div className="font-bold">Edición de Nodos activa:</div>
+                                <div>• Arrastrá los círculos naranjas para mover vértices.</div>
+                                <div>• <b>Doble clic</b> en un borde para insertar un nodo.</div>
+                                <div>• <b>Shift + clic</b> en un nodo para eliminarlo.</div>
+                            </div>
+                        )}
+
+                        {(mode === 'draw_line' || mode === 'add_symbol') && (
+                            <div className="p-4 border-b bg-blue-50/40 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-extrabold uppercase text-blue-800 tracking-wider">
+                                        Catálogo Geológico
+                                    </span>
+                                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
+                                        {mode === 'draw_line' ? 'Modo Trazado' : 'Modo Sello'}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-1 bg-gray-200 p-1 rounded-lg text-[10px] font-bold">
+                                    <button
+                                        onClick={() => { setActiveCatalogTab('fallas'); setMode('draw_line'); }}
+                                        className={`py-1.5 rounded-md transition ${activeCatalogTab === 'fallas' && mode === 'draw_line' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                                    >
+                                        Fallas / Ejes
+                                    </button>
+                                    <button
+                                        onClick={() => { setActiveCatalogTab('planos'); setMode('draw_line'); }}
+                                        className={`py-1.5 rounded-md transition ${activeCatalogTab === 'planos' && mode === 'draw_line' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                                    >
+                                        Planos / Diques
+                                    </button>
+                                    <button
+                                        onClick={() => { setActiveCatalogTab('simbolos'); setMode('add_symbol'); }}
+                                        className={`py-1.5 rounded-md transition ${mode === 'add_symbol' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                                    >
+                                        Símbolos / Facies
+                                    </button>
+                                </div>
+
+                                {mode === 'draw_line' && activeCatalogTab === 'fallas' && (
+                                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                                        {['fault_normal', 'fault_reverse', 'fault_strike', 'fault', 'inferred', 'anticline', 'syncline'].map(k => (
+                                            <button
+                                                key={k}
+                                                onClick={() => setActiveLineType(k)}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg border text-left text-xs transition ${
+                                                    activeLineType === k ? 'bg-blue-50 border-blue-400 font-bold text-blue-900' : 'bg-white hover:bg-gray-50 border-gray-200'
+                                                }`}
+                                            >
+                                                <img src={createLinePreviewDataURL(k, '#000')} className="w-12 h-5 border bg-white rounded px-1 shrink-0" />
+                                                <span className="truncate">{LINE_TYPES[k].name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {mode === 'draw_line' && activeCatalogTab === 'planos' && (
+                                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                                        {['normal', 'joint', 'foliation', 'dike'].map(k => (
+                                            <button
+                                                key={k}
+                                                onClick={() => setActiveLineType(k)}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg border text-left text-xs transition ${
+                                                    activeLineType === k ? 'bg-blue-50 border-blue-400 font-bold text-blue-900' : 'bg-white hover:bg-gray-50 border-gray-200'
+                                                }`}
+                                            >
+                                                <img src={createLinePreviewDataURL(k, '#000')} className="w-12 h-5 border bg-white rounded px-1 shrink-0" />
+                                                <span className="truncate">{LINE_TYPES[k].name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {mode === 'add_symbol' && (
+                                    <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                                        {Object.entries(GEO_SYMBOLS).map(([k, d]) => (
+                                            <button
+                                                key={k}
+                                                onClick={() => setActiveSymbolType(k)}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg border text-left text-xs transition ${
+                                                    activeSymbolType === k ? 'bg-purple-50 border-purple-400 font-bold text-purple-900' : 'bg-white hover:bg-gray-50 border-gray-200'
+                                                }`}
+                                            >
+                                                <img src={createSymbolPreviewDataURL(k, '#000')} className="w-9 h-7 border bg-white rounded p-0.5 shrink-0" />
+                                                <div>
+                                                    <div className="truncate">{d.name}</div>
+                                                    <div className="text-[9px] text-gray-400 uppercase">{d.category}</div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="text-[10px] text-gray-500 italic">
+                                    {mode === 'draw_line'
+                                        ? 'Haz clic en el lienzo para trazar puntos y vuelve a hacer clic en el último punto (o Enter) para cerrar la estructura.'
+                                        : 'Haz clic en cualquier parte del perfil para estampar el símbolo seleccionado.'}
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="p-4 space-y-6">
+                            {selectedPoly ? (
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">
+                                            {selectedPoly.type === 'line' ? 'Nombre en Referencias' : 'Nombre de Formación'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={selectedPoly.name}
+                                            onChange={(e) => setPolygons(polygons.map(p => p.id === selectedId ? { ...p, name: e.target.value } : p))}
+                                            className="w-full px-3 py-2 border rounded text-sm mt-1 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Color</label>
+                                        <input
+                                            type="color"
+                                            value={selectedPoly.color}
+                                            onChange={(e) => setPolygons(polygons.map(p => p.id === selectedId ? { ...p, color: e.target.value } : p))}
+                                            className="w-full h-8 border rounded cursor-pointer mt-1"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-1.5 pt-2 border-t">
+                                        <button
+                                            onClick={() => movePolyLayer(selectedPoly.id, 'up')}
+                                            className="py-1.5 px-2 bg-gray-100 hover:bg-gray-200 rounded text-[11px] font-semibold flex items-center justify-center gap-1"
+                                            title="Traer un nivel adelante"
+                                        >
+                                            <Icon name="layersUp" size={14} /> Subir
+                                        </button>
+                                        <button
+                                            onClick={() => movePolyLayer(selectedPoly.id, 'down')}
+                                            className="py-1.5 px-2 bg-gray-100 hover:bg-gray-200 rounded text-[11px] font-semibold flex items-center justify-center gap-1"
+                                            title="Enviar un nivel atrás"
+                                        >
+                                            <Icon name="layersDown" size={14} /> Bajar
+                                        </button>
+                                        <button
+                                            onClick={() => duplicatePoly(selectedPoly.id)}
+                                            className="py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-semibold flex items-center justify-center gap-1"
+                                            title="Duplicar figura"
+                                        >
+                                            <Icon name="copy" size={13} /> Clonar
+                                        </button>
+                                    </div>
+
+                                    {selectedPoly.type !== 'line' ? (
+                                        <>
+                                            <div className="pt-2 border-t space-y-2">
+                                                <label className="text-[10px] font-bold text-gray-500 uppercase">Litología (3 Secciones)</label>
+                                                {['1', '2', '3'].map(num => (
+                                                    <select
+                                                        key={num}
+                                                        value={selectedPoly[`pattern${num}`]}
+                                                        onChange={(e) => setPolygons(polygons.map(p => p.id === selectedId ? { ...p, [`pattern${num}`]: e.target.value } : p))}
+                                                        className="w-full px-2 py-1.5 border rounded text-xs mb-1 bg-gray-50"
+                                                    >
+                                                        {Object.entries(PATTERNS).map(([k, d]) => (
+                                                            <option key={k} value={k}>{d.name}</option>
+                                                        ))}
+                                                    </select>
+                                                ))}
+                                            </div>
+                                            <div className="pt-2 border-t space-y-2">
+                                                <label className="text-[10px] font-bold text-gray-500 uppercase">Contacto</label>
+                                                <select
+                                                    value={selectedPoly.contactType}
+                                                    onChange={(e) => setPolygons(polygons.map(p => p.id === selectedId ? { ...p, contactType: e.target.value } : p))}
+                                                    className="w-full px-2 py-1.5 border rounded text-xs bg-gray-50"
+                                                >
+                                                    {Object.entries(CONTACT_TYPES).map(([k, d]) => (
+                                                        <option key={k} value={k}>{d.name}</option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={selectedPoly.contactPosition || 'base'}
+                                                    onChange={(e) => setPolygons(polygons.map(p => p.id === selectedId ? { ...p, contactPosition: e.target.value } : p))}
+                                                    className="w-full px-2 py-1.5 border rounded text-xs bg-gray-50"
+                                                >
+                                                    {Object.entries(CONTACT_POSITIONS).map(([k, d]) => (
+                                                        <option key={k} value={k}>{d.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="space-y-3 pt-2 border-t">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase">Tipo de Estructura / Falla</label>
+                                            <select
+                                                value={selectedPoly.lineType}
+                                                onChange={(e) => {
+                                                    const newType = e.target.value;
+                                                    setPolygons(polygons.map(p => p.id === selectedId ? {
+                                                        ...p,
+                                                        lineType: newType,
+                                                        name: (!p.name || LINE_TYPES[p.lineType]?.name === p.name || p.name === 'Estructura')
+                                                            ? LINE_TYPES[newType].name
+                                                            : p.name
+                                                    } : p));
+                                                }}
+                                                className="w-full px-2 py-1.5 border rounded text-xs bg-gray-50"
+                                            >
+                                                {Object.entries(LINE_TYPES).map(([k, d]) => (
+                                                    <option key={k} value={k}>{d.name}</option>
+                                                ))}
+                                            </select>
+                                            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                                                <img src={createLinePreviewDataURL(selectedPoly.lineType, selectedPoly.color)} className="w-14 h-6 border bg-white rounded px-1" />
+                                                <span className="text-[11px] text-gray-600 font-medium">{LINE_TYPES[selectedPoly.lineType]?.name}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => { saveHistory(); setPolygons(polygons.filter(p => p.id !== selectedId)); setSelectedId(null); }}
+                                        className="w-full py-2 bg-red-50 text-red-600 font-bold rounded flex items-center justify-center gap-2 hover:bg-red-100 transition text-sm"
+                                    >
+                                        <Icon name="trash" size={16} /> Eliminar
+                                    </button>
+                                </div>
+                            ) : selectedSymbol ? (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Nombre en Referencias</label>
+                                        <input
+                                            type="text"
+                                            value={selectedSymbol.name}
+                                            onChange={(e) => setGeoSymbols(geoSymbols.map(s => s.id === selectedSymbolId ? { ...s, name: e.target.value } : s))}
+                                            className="w-full px-3 py-2 border rounded text-sm mt-1 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Tipo de Símbolo</label>
+                                        <select
+                                            value={selectedSymbol.symbolType}
+                                            onChange={(e) => {
+                                                const newT = e.target.value;
+                                                setGeoSymbols(geoSymbols.map(s => s.id === selectedSymbolId ? {
+                                                    ...s,
+                                                    symbolType: newT,
+                                                    name: GEO_SYMBOLS[newT]?.name || s.name
+                                                } : s));
+                                            }}
+                                            className="w-full px-2 py-1.5 border rounded text-xs bg-gray-50 mt-1"
+                                        >
+                                            {Object.entries(GEO_SYMBOLS).map(([k, d]) => (
+                                                <option key={k} value={k}>{d.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase text-xs">Tamaño: {selectedSymbol.size}px</label>
+                                        <input
+                                            type="range"
+                                            min="14"
+                                            max="48"
+                                            value={selectedSymbol.size}
+                                            onChange={(e) => setGeoSymbols(geoSymbols.map(s => s.id === selectedSymbolId ? { ...s, size: parseInt(e.target.value) } : s))}
+                                            className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase text-xs">Inclinación / Rotación: {selectedSymbol.rotation || 0}°</label>
+                                            <button
+                                                onClick={() => setGeoSymbols(geoSymbols.map(s => s.id === selectedSymbolId ? { ...s, rotation: 0 } : s))}
+                                                className="text-[10px] text-blue-600 font-bold hover:underline"
+                                            >0°</button>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="-180"
+                                            max="180"
+                                            value={selectedSymbol.rotation || 0}
+                                            onChange={(e) => setGeoSymbols(geoSymbols.map(s => s.id === selectedSymbolId ? { ...s, rotation: parseInt(e.target.value) } : s))}
+                                            className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase text-xs">Color</label>
+                                        <input
+                                            type="color"
+                                            value={selectedSymbol.color}
+                                            onChange={(e) => setGeoSymbols(geoSymbols.map(s => s.id === selectedSymbolId ? { ...s, color: e.target.value } : s))}
+                                            className="w-full h-8 border rounded cursor-pointer mt-1"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => { saveHistory(); setGeoSymbols(geoSymbols.filter(s => s.id !== selectedSymbolId)); setSelectedSymbolId(null); }}
+                                        className="w-full py-2 bg-red-50 text-red-600 font-bold rounded hover:bg-red-100 transition text-sm"
+                                    >
+                                        Eliminar Símbolo
+                                    </button>
+                                </div>
+                            ) : selectedText ? (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Contenido</label>
+                                        <input
+                                            type="text"
+                                            value={selectedText.text}
+                                            onChange={(e) => setFloatingTexts(floatingTexts.map(t => t.id === selectedTextId ? { ...t, text: e.target.value } : t))}
+                                            className="w-full px-3 py-2 border rounded text-sm mt-1 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase text-xs">Tamaño: {selectedText.size}px</label>
+                                        <input
+                                            type="range"
+                                            min="8"
+                                            max="60"
+                                            value={selectedText.size}
+                                            onChange={(e) => setFloatingTexts(floatingTexts.map(t => t.id === selectedTextId ? { ...t, size: parseInt(e.target.value) } : t))}
+                                            className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase text-xs">Color</label>
+                                        <input
+                                            type="color"
+                                            value={selectedText.color}
+                                            onChange={(e) => setFloatingTexts(floatingTexts.map(t => t.id === selectedTextId ? { ...t, color: e.target.value } : t))}
+                                            className="w-full h-8 border rounded cursor-pointer mt-1"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => { saveHistory(); setFloatingTexts(floatingTexts.filter(t => t.id !== selectedTextId)); setSelectedTextId(null); }}
+                                        className="w-full py-2 bg-red-50 text-red-600 font-bold rounded hover:bg-red-100 transition text-sm"
+                                    >
+                                        Borrar Texto
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="text-center opacity-50 text-xs py-16 space-y-2">
+                                    <div className="italic">Selecciona un elemento para editar</div>
+                                    <div className="text-[10px] text-gray-400">Atajos: Ctrl+Z (Deshacer) · Supr (Eliminar) · Enter (Cerrar trazo)</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
